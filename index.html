@@ -2,23 +2,16 @@
 <meta charset="utf-8">
 <style>
 
- @font-face { font-family: Gothic; src: url('trade-gothic-no-18-condensed.ttf'); } 
+@font-face { font-family: Gothic; src: url('trade-gothic-no-18-condensed.ttf'); } 
 
 body {
 	background-color: #252f3d;
-}
-
-.country {
-	stroke:#163A24;	
-	fill:white;
 }
 
 svg {
 	display: block;
 	margin: auto; 
 }
-
-
 
 </style>
 <body>
@@ -58,14 +51,51 @@ svg {
 	var storyData = {}; 
 
 	var svg = d3.select("body").append("svg").attr("width", width).attr("height", height).attr("fill","#343534").on("click",function(){
-		/*if(zoomed){
-			zoom out if zoomed
-		}*/
+		if(zoomed){
+				zoomed = null; 
+				d3.selectAll(".point.radius."+selectedStory.replace(/ /g,"")).transition().attr({
+					//"stroke-opacity":.6,
+					"fill-opacity": 0.2,
+					"stroke-width": "1px",
+				}).duration(150); 
+					d3.selectAll(".route."+selectedStory.replace(/ /g,"")).transition().attr({
+						"stroke-width": "0.2px",
+						opacity:0.5,
+					}).duration(150); 
+
+					selectedStory = null; 
+					projection.startingRotation = currentRotation;
+					currentRotation = [currentRotation[0], 0, 0]; 
+
+					projection
+					.scale(baseScale).rotate(currentRotation);
+
+					d3.selectAll(".route").style({
+						display:"inline"
+					});
+					d3.selectAll(".point").style({
+						display:"inline"
+					});
+
+					d3.selectAll(".label").attr({
+						opacity:0
+					});
+
+					svg.transition().ease("quad-in-out").duration(600).call(zoom.projection(projection).event);	
+
+					setTimeout(function(){
+						zoomed = false; 
+					},700)	
+
+
+		}
 	}); 
 
 	var g = svg.append("g");
+	var baseScale = 300; 
+	var zoomedScale = 800; 
 
-	var projection = d3.geo.orthographic().scale(450).translate([width / 2, height / 2]).clipAngle(90).precision(0.1);
+	var projection = d3.geo.orthographic().scale(baseScale).translate([width / 2, height / 2]).clipAngle(90).precision(0.1);
 
 	var path = d3.geo.path().projection(projection);
 	var circle = d3.geo.circle(); 
@@ -77,21 +107,9 @@ svg {
 
 	var selectedStory; 
 
-	var zoomed = false; 
+	var zoomed =false; 
 
-	var zoomed = function() {
-		g.attr("transform", "translate(" + d3.event.translate + ")scale(" + d3.event.scale + ")");
-	}
-
-	var zoom = d3.behavior.zoom()
-	.translate([0, 0])
-	.scale(1)
-	.scaleExtent([1, 8])
-	.on("zoom", zoomed);
-
-
-
-	var zoomTest = d3.geo.zoom()
+	var zoom = d3.geo.zoom()
 	.projection(projection).on("zoom", function() {
 		d3.selectAll(".sphere").attr("d", path);
 		d3.selectAll(".globe").attr("d", path);
@@ -103,7 +121,7 @@ svg {
 		});
 	});
 
-	svg.call(zoomTest.event);
+	svg.call(zoom.event);
 
 	function transition(country) {
 
@@ -113,13 +131,13 @@ svg {
 		currentRotation =  [-centroid[0], -centroid[1],0]; 
 
 		projection.rotate(currentRotation)
-		.scale(1000)
+		.scale(zoomedScale)
 		.translate([width / 2, height / 2]);
 
 		svg.transition()
 		.ease("quad-in-out")
         .duration(600) // see https://github.com/mbostock/d3/pull/2045
-        .call(zoomTest.projection(projection).event);
+        .call(zoom.projection(projection).event);
     };
 
 
@@ -178,9 +196,10 @@ svg {
 	.attr("d", path).style("fill", function(d, i) { 
 		var continent = continentColors[d.properties.continent];
 		return continent && continent.length?continent[colors[i]%continent.length]:"black";
-	}).on("click",function(d){
-		console.log(d);
-	});
+	}).attr({
+		"stroke-width":"0.6px",
+		stroke:"#163A24"
+	})
 
 	/*
 	add points
@@ -243,7 +262,8 @@ svg {
 					opacity:0.5,
 				}).duration(150); 
 			}).on("click",function(d){
-				if(zoomed){
+				if(zoomed == false){
+					zoomed = null; 
 					//not selector 	
 					selectedStory = story; 
 					d3.selectAll(".route:not(."+story.replace(/ /g,"")+")").style({
@@ -265,40 +285,10 @@ svg {
 						});
 					},400);
 
-				}else{					
-
-
-					d3.selectAll(".point.radius."+selectedStory.replace(/ /g,"")).transition().attr({
-					//"stroke-opacity":.6,
-					"fill-opacity": 0.2,
-					"stroke-width": "1px",
-				}).duration(150); 
-				d3.selectAll(".route."+selectedStory.replace(/ /g,"")).transition().attr({
-					"stroke-width": "0.2px",
-					opacity:0.5,
-				}).duration(150); 
-
-					selectedStory = null; 
-					projection.startingRotation = currentRotation;
-					currentRotation = [currentRotation[0], 0, 0]; 
-
-					projection
-					.scale(450).rotate(currentRotation);
-
-					d3.selectAll(".route").style({
-						display:"inline"
-					});
-					d3.selectAll(".point").style({
-						display:"inline"
-					});
-
-					d3.selectAll(".label").text(story).attr({
-						opacity:0
-					});
-
-					svg.transition().ease("quad-in-out").duration(600).call(zoomTest.projection(projection).event);		
+					setTimeout(function(){
+						zoomed = true; 
+					},700)
 				}
-				zoomed = !zoomed; 
 			});
 
 }
@@ -376,6 +366,9 @@ Label
 	var manualRotationActivated = false;        
 
 	var mouseDown = function() {
+		if(zoomed == true){
+			return; 
+		}
 		m0 = [d3.event.pageX, d3.event.pageY];
 		o0 = projection.rotate();
 		manualRotationActivated = true;
