@@ -146,7 +146,7 @@ svg {
 		if(country.properties['name_long']=="Russian Federation"){
 			country.properties.continent = "Asia"; 
 		}
-		//French Guiana in south america 
+		//French Guiana in SA
 		if(country.properties['name_long']=="France"){
 			countries.push({
 				geometry:{
@@ -161,6 +161,13 @@ svg {
 				type:"feature"
 			});
 		}
+		//Trinidad and tobago in NA
+		if(country.properties['name_long']=="Trinidad and Tobago"){
+			country.properties.continent = "South America"; 
+		}
+		if(country.properties['name_long']=="Iceland"){
+			country.properties.continent = "North America"; 
+		}
 	});
 
 
@@ -171,6 +178,8 @@ svg {
 	.attr("d", path).style("fill", function(d, i) { 
 		var continent = continentColors[d.properties.continent];
 		return continent && continent.length?continent[colors[i]%continent.length]:"black";
+	}).on("click",function(d){
+		console.log(d);
 	});
 
 	/*
