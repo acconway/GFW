@@ -2,93 +2,172 @@
 <meta charset="utf-8">
 <style>
 
-path {
+ @font-face { font-family: Gothic; src: url('trade-gothic-no-18-condensed.ttf'); } 
+
+body {
+	background-color: #252f3d;
+}
+
+.country {
 	stroke:#163A24;	
 	fill:white;
+}
+
+svg {
+	display: block;
+	margin: auto; 
 }
 
 
 
 </style>
 <body>
-	<script src="http://d3js.org/d3.v3.min.js"></script>
+	<!--<script src="http://d3js.org/d3.v3.min.js"></script>
 	<script src="http://d3js.org/topojson.v1.min.js"></script>
-	<script src="http://underscorejs.org/underscore.js"></script>
+	<script src="http://underscorejs.org/underscore.js"></script>--> 
+	<script src="lib/d3.v3.min.js"></script>
+	<script src="lib/d3.geo.zoom.js"></script>
+	<script src="lib/topojson.v1.min.js"></script>
+	<script src="lib/underscore.js"></script>
 	<script>
 
-	var width = 960,
-	height = 960;		
+	var width = 1200,
+	height = 1200;		
 
 	var continentColors = {
 		Africa:["#C15A2E","#DA6C31","#EB8C2F","#EBBA26"],
-		Antarctica:["#3C2820"],
+		Antarctica:["#56342A"],
 		Asia:["#4B1E3C","#531A3F","#692550","#5E2550"],
 		Europe:["#CC3B2B","#79292D","#9A2B29","#E7342B","#B13929"],
 		"North America":["#4D6D95","#60799C","#4A6486","#38557A"],
-		Oceania:["#3C2820","#56342A"],
+		Oceania:["#56342A","#3C2820"],
 		"South America":["#888F2D","#727B37","#5B642C","#798F2D"],
-		"Seven Seas (open ocean)":["#3C2820"]
+		"Seven seas (open ocean)":["#56342A"]
 	};
 
 	var stories = {
 		"Sparking Change":["Burkina Faso","Kenya","Uganda"],
 		"Safe World For Girls":["Malawi","India"],
 		"Reinventing Equality":["Croatia","Georgia"],
-		"Fully Charged (FLOW)":["Bangladesh","China","Fiji","Indonesia","Kyrgyzstan","Marshall Islands","Philippines","Samoa","Sri Lanka","Tajikistan","Timor-Leste","Tonga","Vietnam","Nepal","Cambodia","India","Pakistan"],
+		"Fully Charged FLOW":["Bangladesh","China","Fiji","Indonesia","Kyrgyzstan","Marshall Islands","Philippines","Samoa","Sri Lanka","Tajikistan","Timor-Leste","Tonga","Vietnam","Nepal","Cambodia","India","Pakistan"],
 		"Wired to Defend":["Guatemala","Bolivia","Ecuador","Mexico","Honduras","El Salvador","Nicaragua"],
 		"Electrifying Action":["Lebanon","Jordan"],
 		"Shutting Down Trafficking":["India","Indonesia","Nepal","Philippines","Thailand"] 
 	}; 
 
-	var svg = d3.select("body").append("svg").attr("width", width).attr("height", height); 
+	var storyData = {}; 
+
+	var svg = d3.select("body").append("svg").attr("width", width).attr("height", height).attr("fill","#343534").on("click",function(){
+		/*if(zoomed){
+			zoom out if zoomed
+		}*/
+	}); 
+
+	var g = svg.append("g");
 
 	var projection = d3.geo.orthographic().scale(450).translate([width / 2, height / 2]).clipAngle(90).precision(0.1);
 
 	var path = d3.geo.path().projection(projection);
-			var circle = d3.geo.circle(); 
+	var circle = d3.geo.circle(); 
+
+	var color = d3.scale.category10();
+
+	var centers = {};
+	var lines = {};
+
+	var selectedStory; 
+
+	var zoomed = false; 
+
+	var zoomed = function() {
+		g.attr("transform", "translate(" + d3.event.translate + ")scale(" + d3.event.scale + ")");
+	}
+
+	var zoom = d3.behavior.zoom()
+	.translate([0, 0])
+	.scale(1)
+	.scaleExtent([1, 8])
+	.on("zoom", zoomed);
 
 
-	svg.append("path")
-	.datum({type: "Sphere"})
-	.attr("class", "sphere")
-	.attr("d", path); 
 
-	d3.json("ocean.json",function(error,ocean){
-		var ocean = topojson.feature(ocean, ocean.objects.ocean).features; 
-
-		svg.selectAll("ocean")
-		.data(ocean)
-		.enter().append("path").attr("class","globe ocean")
-		.attr("d", path).style("fill", "#343534");
-
-
+	var zoomTest = d3.geo.zoom()
+	.projection(projection).on("zoom", function() {
+		d3.selectAll(".sphere").attr("d", path);
+		d3.selectAll(".globe").attr("d", path);
+		d3.selectAll(".route").attr("d", function(d){
+			return path(lines[d]);
+		});
+		d3.selectAll(".point").attr("d", function(d){		
+			return path(centers[d]);
+		});
 	});
 
-	d3.json("world.json", function(error, world) {
-		if (error) return console.error(error);
+	svg.call(zoomTest.event);
 
-		var colors = [2,3,4,2,2,0,0,0,0,1,2,2,2,2,1,1,3,0,3,3,2,1,0,1,0,3,3,1,2,0,1,0,2,0,1,1,1,0,1,0,3,0,3,1,1,1,0,1,1,0,1,2,2,0,0,1,0,1,1,2,1,1,2,1,1,0,0,1,1,0,0,2,1,2,0,1,0,0,0,0,0,2,0,2,0,0,3,0,3,2,2,2,2,2,0,0,1,3,2,2,2,0,1,0,2,0,2,2,0,3,3,0,0,0,0,1,0,1,1,0,0,0,0,0,2,0,0,2,0,2,1,3,1,0,0,0,3,0,1,0,1,0,0,0,2,0,1,1,2,0,3,0,1,1,1,0,1,3,0,0,0,0,2,0,1,2,1,1,0,1,2,0,0,2,2,2,1]; 
+	function transition(country) {
 
-		console.log(colors.length);
+		var centroid = d3.geo.centroid(country);
 
-		var countries = topojson.feature(world, world.objects.countries).features; 
+		projection.startingRotation = currentRotation;
+		currentRotation =  [-centroid[0], -centroid[1],0]; 
 
-		console.log(world.objects);
+		projection.rotate(currentRotation)
+		.scale(1000)
+		.translate([width / 2, height / 2]);
 
-		/*neighbors1 = _.chain(world.objects.countries.geometries).groupBy(function(country){
-			return country.properties.continent;
-		}).each(function(continent,key,list){
-			list[key] = topojson.neighbors(continent);
-		}).value();*/
+		svg.transition()
+		.ease("quad-in-out")
+        .duration(600) // see https://github.com/mbostock/d3/pull/2045
+        .call(zoomTest.projection(projection).event);
+    };
 
-	var neighbors = topojson.neighbors(world.objects.countries.geometries);
 
-	var group = svg.append("g").attr("class", "all-path");
+    g.append("path")
+    .datum({type: "Sphere"})
+    .attr("class", "sphere")
+    .attr("d", path).attr("fill","#343534"); 
 
-	group.selectAll("country")
+
+    d3.json("world.json", function(error, world) {
+    	if (error) return console.error(error);
+
+    	var colors = [2,3,4,2,2,0,0,0,0,1,2,2,2,2,1,1,3,0,3,3,2,1,0,1,0,3,3,1,2,0,1,0,2,0,1,1,1,0,1,0,3,0,3,1,1,1,0,1,1,0,1,2,2,0,0,1,0,1,1,2,1,1,2,1,1,0,0,1,1,0,0,2,1,2,0,1,0,0,0,0,0,2,0,2,0,0,3,0,3,2,2,2,2,2,0,0,1,3,2,2,2,0,1,0,2,0,2,2,0,3,3,0,0,0,0,1,0,1,1,0,0,0,0,0,2,0,0,2,0,2,1,3,1,0,0,0,3,0,1,0,1,0,0,0,2,0,1,1,2,0,3,0,1,1,1,0,1,3,0,0,0,0,2,0,1,2,1,1,0,1,2,0,0,2,2,2,1]; 
+
+    	var countries = topojson.feature(world, world.objects.countries).features; 
+
+    	var neighbors = topojson.neighbors(world.objects.countries.geometries);
+
+	/*
+	tuning up 
+	*/
+	_.each(countries,function(country){
+		//Put russia in asia 
+		if(country.properties['name_long']=="Russian Federation"){
+			country.properties.continent = "Asia"; 
+		}
+		//French Guiana in south america 
+		if(country.properties['name_long']=="France"){
+			countries.push({
+				geometry:{
+					type:"MultiPolygon",
+					coordinates:country.geometry.coordinates.splice(0,1)
+				},
+				id:"FRA",
+				properties:{
+					continent:"South America",
+					name_long:"French Guiana"
+				},
+				type:"feature"
+			});
+		}
+	});
+
+
+	g.selectAll("country")
 	.data(countries)
 	.enter().append("path")
-	.attr("class", function(d) { return "globe country " + d.properties["name_long"].replace(" ","")+" continent "+d.properties.continent.replace(" ",""); })
+	.attr("class", function(d) { return "globe country " + d.properties["name_long"].replace(/ /g,"")+" continent "+d.properties.continent.replace(/ /g,""); })
 	.attr("d", path).style("fill", function(d, i) { 
 		var continent = continentColors[d.properties.continent];
 		return continent && continent.length?continent[colors[i]%continent.length]:"black";
@@ -97,20 +176,182 @@ path {
 	/*
 	add points
 	*/
+	var counter = 0; 
 
 	_.each(stories,function(countries,story){
+		storyData[story]={points:[],connections:[],color:color(counter++)}; 
 		_.each(countries,function(country){
-			var countryPath = d3.select("."+country.replace(" ",""));
+			var countryPath = d3.select("."+country.replace(/ /g,""));
 			if(countryPath.empty()){
 				console.log(country);
 			}else{
 				var centroid = d3.geo.centroid(countryPath.data()[0]);
-				svg.append("path").attr("class","point").attr("d", path(circle.origin(centroid).angle(1)())).attr("country",country.replace(" ",""));
+				storyData[story].points.push(centroid); 
+				centers[country.replace(/ /g,"")+"center"] = circle.origin(centroid).angle(1)(); 
+				centers[country.replace(/ /g,"")+"radius"] = circle.origin(centroid).angle(3.5)(); 
+
+
+				g.append("path").data([country.replace(/ /g,"")+"center"]).attr("class","point center "+story.replace(/ /g,"")).attr("d", path(circle.origin(centroid).angle(1)())).attr(
+				{
+					angle:1,
+					"country":country.replace(/ /g,""),
+					centroid:JSON.stringify(centroid),
+					fill:   "#ffff00" ,
+					opacity:0.7,
+				});
+
+				g.append("path").data([country.replace(/ /g,"")+"radius"]).attr("class","point radius "+story.replace(/ /g,"")).attr("d", path(circle.origin(centroid).angle(3.5)())).attr(
+				{
+					angle:3.5,
+					"country":country.replace(/ /g,""),
+					centroid:JSON.stringify(centroid),
+					fill: "#ffff00" ,
+					stroke:  "#ffff00" ,
+					"stroke-opacity":0.6,
+					"fill-opacity": 0.2,					
+				//	"filter": "url(#pointblur)", 
+			}).on("mouseover",function(){
+				d3.selectAll(".point.radius."+story.replace(/ /g,"")).transition().attr({
+						//"stroke-opacity":0.6,
+						"fill-opacity": 0.3,
+						"stroke-width": "2px",
+					}).duration(0); 
+				d3.selectAll(".route."+story.replace(/ /g,"")).transition().attr({
+					"stroke-width": "0.8px",
+					opacity:1,
+				}).duration(0); 
+			}).on("mouseleave",function(){
+				if(selectedStory == story){
+					return; 
+				}
+				d3.selectAll(".point.radius."+story.replace(/ /g,"")).transition().attr({
+					//"stroke-opacity":.6,
+					"fill-opacity": 0.2,
+					"stroke-width": "1px",
+				}).duration(150); 
+				d3.selectAll(".route."+story.replace(/ /g,"")).transition().attr({
+					"stroke-width": "0.2px",
+					opacity:0.5,
+				}).duration(150); 
+			}).on("click",function(d){
+				if(zoomed){
+					//not selector 	
+					selectedStory = story; 
+					d3.selectAll(".route:not(."+story.replace(/ /g,"")+")").style({
+						display:"none"
+					});
+					d3.selectAll(".point:not(."+story.replace(/ /g,"")+")").style({
+						display:"none"
+					});
+					transition(countryPath.data()[0]);
+
+					var center = projection(centroid); 
+					center[0] -= 100;
+
+					setTimeout(function(){
+						d3.selectAll(".label").text(story).attr({
+							"transform":function(d) { return "translate(" +center + ")";}
+						}).transition().duration(300).attr({
+							opacity:1
+						});
+					},400);
+
+				}else{					
+
+
+					d3.selectAll(".point.radius."+selectedStory.replace(/ /g,"")).transition().attr({
+					//"stroke-opacity":.6,
+					"fill-opacity": 0.2,
+					"stroke-width": "1px",
+				}).duration(150); 
+				d3.selectAll(".route."+selectedStory.replace(/ /g,"")).transition().attr({
+					"stroke-width": "0.2px",
+					opacity:0.5,
+				}).duration(150); 
+
+					selectedStory = null; 
+					projection.startingRotation = currentRotation;
+					currentRotation = [currentRotation[0], 0, 0]; 
+
+					projection
+					.scale(450).rotate(currentRotation);
+
+					d3.selectAll(".route").style({
+						display:"inline"
+					});
+					d3.selectAll(".point").style({
+						display:"inline"
+					});
+
+					d3.selectAll(".label").text(story).attr({
+						opacity:0
+					});
+
+					svg.transition().ease("quad-in-out").duration(600).call(zoomTest.projection(projection).event);		
+				}
+				zoomed = !zoomed; 
+			});
+
+}
+});	
+});
+
+	/*
+	add connections
+	*/
+
+	//data 
+
+	var connections = [];
+	var connectionCounter = 0; 
+
+	_.each(storyData,function(story,name){
+		var temp = [];
+		_.each(story.points,function(country,index){
+			for(var i =index+1;i<story.points.length;i++){
+
+				temp.push([country,story.points[i]]);
+
+				var line = {type:"LineString",coordinates:[country,story.points[i]]}; 
+
+				var lookupID = name+(connectionCounter++);
+				lines[lookupID] = line;
+
+				g.append("path").data([lookupID]).attr("class","route "+name.replace(/ /g,"")).attr("d", path(line)).attr(
+				{
+					//display:"none",
+					lookupID:lookupID, 
+					"line":line,
+					fill: "none",
+					stroke:  "#ffff00" ,
+					"stroke-width": "0.2px",
+					opacity:0.5,
+					//"filter": "url(#lineblur)", 
+
+				}).on("mouseover",function(){
+
+				}).on("mouseleave",function(){
+				}); 
 			}
-		});	
+		});
+		connections.push(temp);
+	});
+
+	g.append("text").attr({
+		class:"label",
+		fill:"white",
+		"font-family": "Gothic",
+		"font-size":"32pt",
+		"text-anchor":"end",
+		opacity:0
 	});
 
 }); 
+
+
+/*
+Label
+*/
 
 	/*
 	Interaction behavior
@@ -120,6 +361,7 @@ path {
 	var animationRequest; 
 	var m0;
 	var o0; 
+	var doRotate; 
 
 	var currentRotation = [0, 0, 0]; 
 	var manualRotationActivated = false;        
@@ -128,11 +370,13 @@ path {
 		m0 = [d3.event.pageX, d3.event.pageY];
 		o0 = projection.rotate();
 		manualRotationActivated = true;
+		doRotate = false; 
 		animationRequest = requestAnimationFrame(rotate);
 		d3.event.preventDefault();
 	};
 
 	var mouseUp = function() {
+		doRotate = false; 
 		manualRotationActivated = false;
 		if (m0) {
 			m0 = null;
@@ -140,31 +384,36 @@ path {
 	};
 
 	var mouseMove = function() {
+		doRotate = true; 
 		var m1, o1;
 		if (m0) {
 			m1 = [d3.event.pageX, d3.event.pageY];
-			o1 = [o0[0] + (m1[0] - m0[0]) / 6, o0[1] + (m0[1] - m1[1]) / 6];
-			o1[1] = (o1[1] > 30 ? 30 : (o1[1] < -30 ? -30 : o1[1]));
-			currentRotation[0] = o1[0];
+			o1 = [o0[0] + (m1[0] - m0[0]) / 4, o0[1] + (m0[1] - m1[1]) / 4];
+			o1[1] = Math.min(Math.max(o1[1],-20),20); 
+			currentRotation = [o1[0],o1[1],0];
 		}
 	};
 
 	var rotate = function() {
 		if (manualRotationActivated) {
-			redrawPathsOnRotationOrScale(currentRotation, projection.scale());
+			redrawPathsOnRotation(currentRotation);
 			animationRequest = requestAnimationFrame(rotate);
 		}
 	};
 
-	var redrawPathsOnRotationOrScale = function(rotation, scale) {
+	var redrawPathsOnRotation = function(rotation) {
+		if(!doRotate){
+			return; 
+		}
 		currentRotation = rotation;
-		projection.rotate(currentRotation).scale(scale);
+		projection.rotate(currentRotation);
 		d3.selectAll(".globe").attr("d", path);
-		d3.selectAll(".point").attr("d", function(d){
-			var point = d3.select(this);
-			var countryPath = d3.select("."+point.attr("country"));
-			var centroid = d3.geo.centroid(countryPath.data()[0]);
-			return path(circle.origin(centroid).angle(1)());
+		d3.selectAll(".sphere").attr("d", path);
+		d3.selectAll(".route").attr("d", function(d){
+			return path(lines[d]);
+		});
+		d3.selectAll(".point").attr("d", function(d){		
+			return path(centers[d]);
 		});
 	};
 
