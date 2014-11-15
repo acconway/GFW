@@ -2,8 +2,6 @@
 <meta charset="utf-8">
 <style>
 
-@font-face { font-family: Gothic; src: url('trade-gothic-no-18-condensed.ttf'); } 
-
 body {
 	background-color: #252f3d;
 }
@@ -25,16 +23,16 @@ svg {
 	<script>
 
 	var width = 1200,
-	height = 1200;		
+	height = 800;		
 
 	var continentColors = {
-		Africa:["#C15A2E","#DA6C31","#EB8C2F","#EBBA26"],
+		Africa:["#B3542B","#C05F2B","#D17D2A","#CFA421"],
 		Antarctica:["#56342A"],
 		Asia:["#4B1E3C","#531A3F","#692550","#5E2550"],
-		Europe:["#CC3B2B","#79292D","#9A2B29","#E7342B","#B13929"],
-		"North America":["#4D6D95","#60799C","#4A6486","#38557A"],
+		Europe:["#B83D30","#79292D","#9A2B29","#BF2B24","#BF261B"],
+		"North America":["#46658C","#465F80","#4A6486","#38557A"],
 		Oceania:["#56342A","#3C2820"],
-		"South America":["#888F2D","#727B37","#5B642C","#798F2D"],
+		"South America":["#79802D","#727B37","#5B642C","#798F2D"],
 		"Seven seas (open ocean)":["#56342A"]
 	};
 
@@ -52,46 +50,50 @@ svg {
 
 	var svg = d3.select("body").append("svg").attr("width", width).attr("height", height).attr("fill","#343534").on("click",function(){
 		if(zoomed){
-				zoomed = null; 
-				d3.selectAll(".point.radius."+selectedStory.replace(/ /g,"")).transition().attr({
+
+			zoomed = null; 
+			d3.selectAll(".point.radius."+selectedStory.replace(/ /g,"")).transition().attr({
 					//"stroke-opacity":.6,
 					"fill-opacity": 0.2,
 					"stroke-width": "1px",
 				}).duration(150); 
-					d3.selectAll(".route."+selectedStory.replace(/ /g,"")).transition().attr({
-						"stroke-width": "0.2px",
-						opacity:0.5,
-					}).duration(150); 
+			d3.selectAll(".route."+selectedStory.replace(/ /g,"")).transition().attr({
+				"stroke-width": "0.2px",
+				opacity:0.5,
+			}).duration(150); 
 
-					selectedStory = null; 
-					projection.startingRotation = currentRotation;
-					currentRotation = [currentRotation[0], 0, 0]; 
+			selectedStory = null; 
+			projection.startingRotation = currentRotation;
+			currentRotation = [currentRotation[0], 0, 0]; 
 
-					projection
-					.scale(baseScale).rotate(currentRotation);
+			projection
+			.scale(baseScale).rotate(currentRotation);
 
-					d3.selectAll(".route").style({
-						display:"inline"
-					});
-					d3.selectAll(".point").style({
-						display:"inline"
-					});
+			d3.selectAll(".route").style({
+				display:"inline"
+			});
+			d3.selectAll(".point").style({
+				display:"inline"
+			});
 
-					d3.selectAll(".label").attr({
-						opacity:0
-					});
+			d3.selectAll(".label").attr({
+				opacity:0
+			});
 
-					svg.transition().ease("quad-in-out").duration(600).call(zoom.projection(projection).event);	
+			svg.transition().ease("quad-in-out").duration(600).call(zoom.projection(projection).event);	
 
-					setTimeout(function(){
-						zoomed = false; 
-					},700)	
+			setTimeout(function(){
+				zoomed = false; 
+			},700)	
 
 
 		}
 	}); 
 
-	var g = svg.append("g");
+	var countryLayer = svg.append("g");
+	var connectionLayer = svg.append("g"); 
+	var pointLayer = svg.append("g");
+
 	var baseScale = 300; 
 	var zoomedScale = 800; 
 
@@ -140,8 +142,7 @@ svg {
         .call(zoom.projection(projection).event);
     };
 
-
-    g.append("path")
+    countryLayer.append("path")
     .datum({type: "Sphere"})
     .attr("class", "sphere")
     .attr("d", path).attr("fill","#343534"); 
@@ -189,7 +190,7 @@ svg {
 	});
 
 
-	g.selectAll("country")
+	countryLayer.selectAll("country")
 	.data(countries)
 	.enter().append("path")
 	.attr("class", function(d) { return "globe country " + d.properties["name_long"].replace(/ /g,"")+" continent "+d.properties.continent.replace(/ /g,""); })
@@ -206,6 +207,16 @@ svg {
 	*/
 	var counter = 0; 
 
+	var centerTuning = {
+		"Sparking Change":{},
+		"Reinventing Equality":{},
+		"Wired to Defend":{},
+		"Electrifying Action":{},
+		"Safe World For Girls":{"India":{x:-4,y:-8}},
+		"Fully Charged FLOW":{"India":{x:-3,y:2},"Nepal":{x:-0.8,y:0.5},"Philippines":{x:-0.5,y:2},"Indonesia":{x:-10,y:2}},
+		"Shutting Down Trafficking":{"India":{x:3,y:-3.5},"Nepal":{x:1.8,y:-0.6},"Philippines":{x:2,y:-3.8},"Indonesia":{x:0,y:0}}
+	};
+
 	_.each(stories,function(countries,story){
 		storyData[story]={points:[],connections:[],color:color(counter++)}; 
 		_.each(countries,function(country){
@@ -213,41 +224,53 @@ svg {
 			if(countryPath.empty()){
 				console.log(country);
 			}else{
+
 				var centroid = d3.geo.centroid(countryPath.data()[0]);
+
+				centroid[0] += centerTuning[story][country] ? centerTuning[story][country].x : 0; 
+				centroid[1] += centerTuning[story][country] ? centerTuning[story][country].y : 0; 
+
 				storyData[story].points.push(centroid); 
-				centers[country.replace(/ /g,"")+"center"] = circle.origin(centroid).angle(1)(); 
-				centers[country.replace(/ /g,"")+"radius"] = circle.origin(centroid).angle(3.5)(); 
 
+				var id = (story+country).replace(/ /g,""); 
 
-				g.append("path").data([country.replace(/ /g,"")+"center"]).attr("class","point center "+story.replace(/ /g,"")).attr("d", path(circle.origin(centroid).angle(1)())).attr(
+				var centerID = id+"center"; 
+				var radiusID = id+"radius"; 
+
+				var centerCircle = circle.origin(centroid).angle(1)(); 
+				var radiusCircle = circle.origin(centroid).angle(3.5)();  
+
+				console.log(centerID);
+
+				centers[centerID] = centerCircle;
+				centers[radiusID] = radiusCircle;
+
+				pointLayer.append("path").data([centerID]).attr("class","point center "+story.replace(/ /g,"")).attr("d", path(centerCircle)).attr(
 				{
-					angle:1,
-					"country":country.replace(/ /g,""),
-					centroid:JSON.stringify(centroid),
 					fill:   "#ffff00" ,
 					opacity:0.7,
 				});
 
-				g.append("path").data([country.replace(/ /g,"")+"radius"]).attr("class","point radius "+story.replace(/ /g,"")).attr("d", path(circle.origin(centroid).angle(3.5)())).attr(
+				pointLayer.append("path").data([radiusID]).attr("class","point radius "+story.replace(/ /g,"")).attr("d", path(radiusCircle)).attr(
 				{
-					angle:3.5,
-					"country":country.replace(/ /g,""),
-					centroid:JSON.stringify(centroid),
 					fill: "#ffff00" ,
 					stroke:  "#ffff00" ,
 					"stroke-opacity":0.6,
-					"fill-opacity": 0.2,					
-				//	"filter": "url(#pointblur)", 
+					"fill-opacity": 0.2					
 			}).on("mouseover",function(){
+				d3.selectAll(".point.center."+story.replace(/ /g,"")).transition().attr({
+					opacity:1,
+				}).duration(0); 
 				d3.selectAll(".point.radius."+story.replace(/ /g,"")).transition().attr({
 						//"stroke-opacity":0.6,
 						"fill-opacity": 0.3,
-						"stroke-width": "2px",
+						"stroke-width": "1.5px",
 					}).duration(0); 
 				d3.selectAll(".route."+story.replace(/ /g,"")).transition().attr({
-					"stroke-width": "0.8px",
+					"stroke-width": "1px",
 					opacity:1,
 				}).duration(0); 
+
 			}).on("mouseleave",function(){
 				if(selectedStory == story){
 					return; 
@@ -255,7 +278,7 @@ svg {
 				d3.selectAll(".point.radius."+story.replace(/ /g,"")).transition().attr({
 					//"stroke-opacity":.6,
 					"fill-opacity": 0.2,
-					"stroke-width": "1px",
+					"stroke-width": "1px"
 				}).duration(150); 
 				d3.selectAll(".route."+story.replace(/ /g,"")).transition().attr({
 					"stroke-width": "0.2px",
@@ -291,8 +314,8 @@ svg {
 				}
 			});
 
-}
-});	
+		}
+	});	
 });
 
 	/*
@@ -316,31 +339,23 @@ svg {
 				var lookupID = name+(connectionCounter++);
 				lines[lookupID] = line;
 
-				g.append("path").data([lookupID]).attr("class","route "+name.replace(/ /g,"")).attr("d", path(line)).attr(
+				connectionLayer.append("path").data([lookupID]).attr("class","route "+name.replace(/ /g,"")).attr("d", path(line)).attr(
 				{
-					//display:"none",
-					lookupID:lookupID, 
-					"line":line,
 					fill: "none",
 					stroke:  "#ffff00" ,
 					"stroke-width": "0.2px",
-					opacity:0.5,
-					//"filter": "url(#lineblur)", 
-
-				}).on("mouseover",function(){
-
-				}).on("mouseleave",function(){
-				}); 
+					opacity:0.5
+				});
 			}
 		});
 		connections.push(temp);
 	});
 
-	g.append("text").attr({
+	svg.append("text").attr({
 		class:"label",
 		fill:"white",
-		"font-family": "Gothic",
-		"font-size":"32pt",
+		"font-family": "Arial",
+		"font-size":"20pt",
 		"text-anchor":"end",
 		opacity:0
 	});
@@ -414,7 +429,8 @@ Label
 		d3.selectAll(".route").attr("d", function(d){
 			return path(lines[d]);
 		});
-		d3.selectAll(".point").attr("d", function(d){		
+		d3.selectAll(".point").attr("d", function(d){	
+		console.log(d);	
 			return path(centers[d]);
 		});
 	};
