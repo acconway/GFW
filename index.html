@@ -98,6 +98,7 @@ svg {
 			svg.transition().ease("quad-in-out").duration(600).call(zoom.projection(projection).event);	
 
 			setTimeout(function(){
+				setCursor("grab");
 				zoomed = false; 
 			},700)	
 
@@ -169,7 +170,7 @@ svg {
 
 		classes[type] = true; 
 
-		d3.selectAll(".sphere,.globe").classed(classes); 
+		d3.selectAll(".sphere,.globe,.label").classed(classes); 
 
 	};
 
