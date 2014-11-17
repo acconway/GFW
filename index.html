@@ -11,6 +11,21 @@ svg {
 	margin: auto; 
 }
 
+.grab {
+	cursor: grab;
+	cursor: -webkit-grab;
+}
+
+.grabbing {
+	cursor: grabbing;
+	cursor: -webkit-grabbing;
+}
+
+.pointer {
+	cursor: pointer; 
+}
+
+
 </style>
 <body>
 	<!--<script src="http://d3js.org/d3.v3.min.js"></script>
@@ -23,7 +38,7 @@ svg {
 	<script>
 
 	var width = 1200,
-	height = 800;		
+	height = 1200;		
 
 	var continentColors = {
 		Africa:["#B3542B","#C05F2B","#D17D2A","#CFA421"],
@@ -48,7 +63,7 @@ svg {
 
 	var storyData = {}; 
 
-	var svg = d3.select("body").append("svg").attr("width", width).attr("height", height).attr("fill","#343534").on("click",function(){
+	var svg = d3.select("body").append("svg").attr("width", width).attr("height", height).attr({fill:"#343534"}).on("click",function(){
 		if(zoomed){
 
 			zoomed = null; 
@@ -107,12 +122,28 @@ svg {
 	var centers = {};
 	var lines = {};
 
+	var label; 
+
 	var selectedStory; 
 
 	var zoomed =false; 
 
+	var zoomCounter = 0;
+	var ease = d3.ease("quad-in-out"); 
+
 	var zoom = d3.geo.zoom()
 	.projection(projection).on("zoom", function() {
+		setCursor("pointer");
+		if(label){
+			var center = projection(centers["label"]);
+			center[0] -= 30 + ease(zoomCounter/10)*40;
+			center[1] += 5;
+			label.attr({
+				"font-size":(15+ease(zoomCounter/10)*3)+"pt",
+				"transform":function(d) { return "translate(" +center + ")";},
+			});
+			zoomCounter++;
+		}
 		d3.selectAll(".sphere").attr("d", path);
 		d3.selectAll(".globe").attr("d", path);
 		d3.selectAll(".route").attr("d", function(d){
@@ -121,9 +152,26 @@ svg {
 		d3.selectAll(".point").attr("d", function(d){		
 			return path(centers[d]);
 		});
+	}).on("zoomend",function(){
+		zoomCounter = 0; 
 	});
 
 	svg.call(zoom.event);
+
+
+	function setCursor(type){
+
+		var classes = {
+			"grab":false,
+			"grabbing":false,
+			"pointer":false
+		};
+
+		classes[type] = true; 
+
+		d3.selectAll(".sphere,.globe").classed(classes); 
+
+	};
 
 	function transition(country) {
 
@@ -144,8 +192,11 @@ svg {
 
     countryLayer.append("path")
     .datum({type: "Sphere"})
-    .attr("class", "sphere")
-    .attr("d", path).attr("fill","#343534"); 
+    .attr({
+    	class:"sphere",
+    	"d": path,
+    	"fill":"#343534"
+    });
 
 
     d3.json("world.json", function(error, world) {
@@ -200,7 +251,7 @@ svg {
 	}).attr({
 		"stroke-width":"0.6px",
 		stroke:"#163A24"
-	})
+	});
 
 	/*
 	add points
@@ -240,8 +291,6 @@ svg {
 				var centerCircle = circle.origin(centroid).angle(1)(); 
 				var radiusCircle = circle.origin(centroid).angle(3.5)();  
 
-				console.log(centerID);
-
 				centers[centerID] = centerCircle;
 				centers[radiusID] = radiusCircle;
 
@@ -249,6 +298,7 @@ svg {
 				{
 					fill:   "#ffff00" ,
 					opacity:0.7,
+					cursor:"pointer"
 				});
 
 				pointLayer.append("path").data([radiusID]).attr("class","point radius "+story.replace(/ /g,"")).attr("d", path(radiusCircle)).attr(
@@ -256,37 +306,56 @@ svg {
 					fill: "#ffff00" ,
 					stroke:  "#ffff00" ,
 					"stroke-opacity":0.6,
-					"fill-opacity": 0.2					
-			}).on("mouseover",function(){
-				d3.selectAll(".point.center."+story.replace(/ /g,"")).transition().attr({
-					opacity:1,
-				}).duration(0); 
-				d3.selectAll(".point.radius."+story.replace(/ /g,"")).transition().attr({
+					"fill-opacity": 0.2,
+					cursor:"pointer"			
+				}).on("mouseover",function(){
+
+					var center = projection(centroid); 
+					centers["label"] = centroid;
+					center[0] -= 30;
+					center[1] += 5;
+
+					if(!selectedStory){
+
+						d3.selectAll(".label").text(story).attr({
+							"transform":function(d) { return "translate(" +center + ")";},
+							"font-size":"15pt",
+							opacity:1
+						});
+					}	
+
+					d3.selectAll(".point.center."+story.replace(/ /g,"")).transition().attr({
+						opacity:1,
+					}).duration(0); 
+					d3.selectAll(".point.radius."+story.replace(/ /g,"")).transition().attr({
 						//"stroke-opacity":0.6,
 						"fill-opacity": 0.3,
 						"stroke-width": "1.5px",
 					}).duration(0); 
-				d3.selectAll(".route."+story.replace(/ /g,"")).transition().attr({
-					"stroke-width": "1px",
-					opacity:1,
-				}).duration(0); 
+					d3.selectAll(".route."+story.replace(/ /g,"")).transition().attr({
+						"stroke-width": "1px",
+						opacity:1,
+					}).duration(0); 
 
-			}).on("mouseleave",function(){
-				if(selectedStory == story){
-					return; 
-				}
-				d3.selectAll(".point.radius."+story.replace(/ /g,"")).transition().attr({
+				}).on("mouseleave",function(){
+					if(selectedStory == story){
+						return; 
+					}
+					d3.selectAll(".label").transition().duration(100).attr({
+						opacity:0
+					});
+					d3.selectAll(".point.radius."+story.replace(/ /g,"")).transition().attr({
 					//"stroke-opacity":.6,
 					"fill-opacity": 0.2,
 					"stroke-width": "1px"
 				}).duration(150); 
-				d3.selectAll(".route."+story.replace(/ /g,"")).transition().attr({
-					"stroke-width": "0.2px",
-					opacity:0.5,
-				}).duration(150); 
-			}).on("click",function(d){
-				if(zoomed == false){
-					zoomed = null; 
+					d3.selectAll(".route."+story.replace(/ /g,"")).transition().attr({
+						"stroke-width": "0.2px",
+						opacity:0.5,
+					}).duration(150); 
+				}).on("click",function(d){
+					if(zoomed == false){
+						zoomed = null; 
 					//not selector 	
 					selectedStory = story; 
 					d3.selectAll(".route:not(."+story.replace(/ /g,"")+")").style({
@@ -297,16 +366,6 @@ svg {
 					});
 					transition(countryPath.data()[0]);
 
-					var center = projection(centroid); 
-					center[0] -= 100;
-
-					setTimeout(function(){
-						d3.selectAll(".label").text(story).attr({
-							"transform":function(d) { return "translate(" +center + ")";}
-						}).transition().duration(300).attr({
-							opacity:1
-						});
-					},400);
 
 					setTimeout(function(){
 						zoomed = true; 
@@ -314,8 +373,8 @@ svg {
 				}
 			});
 
-		}
-	});	
+			}
+		});	
 });
 
 	/*
@@ -351,7 +410,7 @@ svg {
 		connections.push(temp);
 	});
 
-	svg.append("text").attr({
+	label = svg.append("text").attr({
 		class:"label",
 		fill:"white",
 		"font-family": "Arial",
@@ -359,6 +418,8 @@ svg {
 		"text-anchor":"end",
 		opacity:0
 	});
+
+	setCursor("grab");
 
 }); 
 
@@ -384,6 +445,7 @@ Label
 		if(zoomed == true){
 			return; 
 		}
+		setCursor("grabbing");
 		m0 = [d3.event.pageX, d3.event.pageY];
 		o0 = projection.rotate();
 		manualRotationActivated = true;
@@ -393,6 +455,7 @@ Label
 	};
 
 	var mouseUp = function() {
+		setCursor("grab");
 		doRotate = false; 
 		manualRotationActivated = false;
 		if (m0) {
@@ -430,7 +493,6 @@ Label
 			return path(lines[d]);
 		});
 		d3.selectAll(".point").attr("d", function(d){	
-		console.log(d);	
 			return path(centers[d]);
 		});
 	};
@@ -443,6 +505,6 @@ Label
 	.on("touchmove", mouseMove)
 	.on("touchend", mouseUp);
 
-	d3.select(self.frameElement).style("height", height + "px");
+	//d3.select(self.frameElement).style("height", height + "px");
 
 	</script>
