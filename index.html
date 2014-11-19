@@ -58,7 +58,7 @@ cursor: pointer;
 				"Sparking Change": ["Burkina Faso", "Kenya", "Uganda"],
 				"Safe World For Girls": ["Malawi", "India"],
 				"Reinventing Equality": ["Croatia", "Georgia"],
-				"Fully Charged FLOW": [ /*"Bangladesh",*/ "China", "Fiji", "Indonesia", "Kyrgyzstan", "Marshall Islands", "Philippines", "Samoa", "Sri Lanka", "Tajikistan", "Timor-Leste", "Tonga", "Vietnam", /*"Nepal","Cambodia",*/ "India", "Pakistan"],
+				"Fully Charged FLOW": [ "Bangladesh", "China", "Fiji", "Indonesia", "Kyrgyzstan", "Marshall Islands", "Philippines", "Samoa", "Sri Lanka", "Tajikistan", "Timor-Leste", "Tonga", "Vietnam", /*"Nepal",*/"Cambodia","India", "Pakistan"],
 				"Wired to Defend": ["Guatemala", "Bolivia", "Ecuador", "Mexico", "Honduras", "El Salvador", "Nicaragua"],
 				"Electrifying Action": ["Lebanon", "Jordan"],
 				"Shutting Down Trafficking": ["India", "Indonesia", "Nepal", "Philippines", "Thailand"]
@@ -74,6 +74,40 @@ cursor: pointer;
 				"Shutting Down Trafficking": "#33FFcc"
 			};
 
+			var storyConnectors = {
+					"Shutting Down Trafficking": ["India_Nepal", "India_Thailand", "India_Indonesia", "Nepal_Thailand", "Nepal_Philippines", "Philippines_Thailand", "Philippines_Indonesia", "Indonesia_Thailand"],
+					"Fully Charged FLOW": ["Pakistan_Tajikistan","Pakistan_India",
+						"India_Sri Lanka",
+						"India_Vietnam",
+						"India_China",
+						"India_Kyrgyzstan",
+						"India_Tajikistan",
+						"Tajikistan_Kyrgyzstan",
+						"Kyrgyzstan_China",
+						//"India_Indonesia",
+						//"Kyrgyzstan_Vietnam",
+						"China_Vietnam",
+						"China_Philippines",
+						"Vietnam_Cambodia",
+						"Indonesia_Cambodia",
+						"Sri Lanka_Indonesia",
+						//"Sri Lanka_Bangladesh",
+						"Sri Lanka_Cambodia",
+						"Vietnam_Philippines",
+						"Philippines_Indonesia",
+						"Philippines_Timor-Leste",
+						"Timor-Leste_Fiji",
+						"Timor-Leste_Indonesia",
+						"Fiji_China",
+						"Fiji_Philippines",
+					],
+					"Wired to Defend": ["Mexico_Guatemala","Mexico_Honduras","El Salvador_Ecuador","El Salvador_Guatemala","El Salvador_Nicaragua","Honduras_Guatemala","Honduras_Nicaragua","Nicaragua_Ecuador","Ecuador_Bolivia"],
+
+
+					//"Bolivia", "Ecuador", "Mexico", "Mexico_Honduras", "El Salvador", "Nicaragua"
+
+			};
+
 			var centerTuning = {
 				"Sparking Change": {},
 				"Reinventing Equality": {},
@@ -86,9 +120,13 @@ cursor: pointer;
 					}
 				},
 				"Fully Charged FLOW": {
+					"Cambodia":{
+						x:1.2,
+						y:0
+					},
 					"Vietnam": {
-						x: -1.5,
-						y: 4.5
+						x: -1,
+						y: 5
 					},
 					"India": {
 						x: -3,
@@ -113,8 +151,8 @@ cursor: pointer;
 						y: -3.5
 					},
 					"Nepal": {
-						x: 1.8,
-						y: -0.6
+						x: 0,
+						y: 0
 					},
 					"Philippines": {
 						x: 2,
@@ -123,14 +161,17 @@ cursor: pointer;
 					"Indonesia": {
 						x: 0,
 						y: 0
+					},
+					"Thailand": {
+						x: -1.6,
+						y: 2
 					}
 				}
 			};
 
 
 			var config = {
-				props:{
-				},
+				props: {},
 				eventClasses: {
 					pointMouseover: ["point.center.STORY", "point.radius.STORY", "route.STORY"],
 					pointMouseleave: ["point.center.STORY", "point.radius.STORY", "route.STORY", "label"],
@@ -221,7 +262,7 @@ cursor: pointer;
 							attr: {
 								opacity: 0
 							},
-							duration:0
+							duration: 0
 						}
 					}
 
@@ -270,26 +311,30 @@ cursor: pointer;
 			var circle = d3.geo.circle();
 
 			var centers = {};
+			var centerPoints = {};
 			var lines = {};
 
 			var label;
 
+			var mouseOverStory;
 			var selectedStory;
 
 			var zoomed = false;
+			var inZoom = false; 
 
 			var zoomCounter = 0;
 			var ease = d3.ease("quad-in-out");
 
 			var zoom = d3.geo.zoom()
 				.projection(projection).on("zoom", function() {
+					inZoom = true; 
 					setCursor("pointer");
 					if (label) {
 						var center = projection(centers["label"]);
 						center[0] -= 30 + ease(zoomCounter / 10) * 40;
 						center[1] += 5;
 						label.attr({
-							"font-size": (15 + ease(zoomCounter / 10) * 3) + "pt",
+							"font-size": (13 + ease(zoomCounter / 10) * 6) + "pt",
 							"transform": function(d) {
 								return "translate(" + center + ")";
 							},
@@ -305,6 +350,7 @@ cursor: pointer;
 						return path(centers[d]);
 					});
 				}).on("zoomend", function() {
+					inZoom = false; 
 					zoomCounter = 0;
 				});
 
@@ -344,6 +390,10 @@ cursor: pointer;
 
 			function applyProperties(eventClass, eventName, storyClassName) {
 				_.each(config.eventClasses[eventClass], function(className) {
+
+					if (!storyClassName) {
+						return;
+					}
 
 					var thisConfig = config.styles[className][eventName];
 					var selection = d3.selectAll("." + className.replace("STORY", storyClassName || ""));
@@ -436,8 +486,7 @@ cursor: pointer;
 					var storyClassName = story.replace(/ /g, "");
 
 					storyData[story] = {
-						points: [],
-						connections: []
+						points: []
 					};
 					_.each(countries, function(country) {
 						var countryPath = d3.select("." + country.replace(/ /g, ""));
@@ -447,10 +496,15 @@ cursor: pointer;
 
 							var centroid = d3.geo.centroid(countryPath.data()[0]);
 
+							centerPoints[story+country] = centroid;
+
 							centroid[0] += centerTuning[story][country] ? centerTuning[story][country].x : 0;
 							centroid[1] += centerTuning[story][country] ? centerTuning[story][country].y : 0;
 
-							storyData[story].points.push(centroid);
+							storyData[story].points.push({
+								"country": story+country,
+								center: centroid
+							});
 
 							var id = (story + country).replace(/ /g, "");
 
@@ -465,20 +519,23 @@ cursor: pointer;
 
 							var mouseover = function() {
 
-								console.log("mouseover");
+								if (manualRotationActivated || inZoom) {
+									return;
+								}
+
+								mouseOverStory = storyClassName;
 
 								var center = projection(centroid);
 								centers["label"] = centroid;
 								center[0] -= 30;
 								center[1] += 5;
 
-								if (!selectedStory) {
-									console.log("label");
+								if (!selectedStory && !inZoom) {
 									d3.selectAll(".label").text(story).attr({
 										"transform": function(d) {
 											return "translate(" + center + ")";
 										},
-										"font-size": "15pt",
+										"font-size": "13pt",
 										opacity: 1
 									});
 								}
@@ -488,7 +545,8 @@ cursor: pointer;
 							};
 
 							var mouseleave = function() {
-								console.log("mouseleave");
+
+								mouseOverStory = null;
 
 								if (selectedStory == story) {
 									return;
@@ -547,40 +605,50 @@ cursor: pointer;
 
 				//data 
 
-				var connections = [];
 				var connectionCounter = 0;
 
 				_.each(storyData, function(story, name) {
-					var temp = [];
-					_.each(story.points, function(country, index) {
 
-						var counter = 0;
 
-						for (var i = index + 1; i < story.points.length; i++) {
+					var addConnection = function(endpoint0, endpoint1) {
 
-							if (counter++ >= 3) {
-								return;
+						var line = {
+							type: "LineString",
+							coordinates: [endpoint0, endpoint1]
+						};
+
+						var lookupID = name + (connectionCounter++);
+						lines[lookupID] = line;
+
+						connectionLayer.append("path").data([lookupID]).attr("class", "route " + name.replace(/ /g, "")).attr("d", path(line)).attr({
+							fill: "none",
+							stroke: storyColors[name] || "#ffff00",
+							"stroke-width": "0.2px",
+							opacity: 0.5
+						});
+
+					};
+
+					if (storyConnectors[name]) {
+
+						_.each(storyConnectors[name], function(connection) {
+
+							var endpoints = connection.split("_");
+
+							addConnection(centerPoints[name+endpoints[0]], centerPoints[name+endpoints[1]]);
+
+						});
+
+					} else {
+
+						_.each(story.points, function(country, index) {
+
+							for (var i = index + 1; i < story.points.length; i++) {
+								addConnection(country.center, story.points[i].center);
 							}
+						});
 
-							temp.push([country, story.points[i]]);
-
-							var line = {
-								type: "LineString",
-								coordinates: [country, story.points[i]]
-							};
-
-							var lookupID = name + (connectionCounter++);
-							lines[lookupID] = line;
-
-							connectionLayer.append("path").data([lookupID]).attr("class", "route " + name.replace(/ /g, "")).attr("d", path(line)).attr({
-								fill: "none",
-								stroke: storyColors[name] || "#ffff00",
-								"stroke-width": "0.2px",
-								opacity: 0.5
-							});
-						}
-					});
-					connections.push(temp);
+					}
 				});
 
 				label = svg.append("text").attr({
