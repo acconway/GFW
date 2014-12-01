@@ -14,7 +14,7 @@ background-color: #252f3d;
 
 svg {
 display: block;
-margin: auto; 
+margin: auto;
 }
 
 .grab {
@@ -40,8 +40,8 @@ cursor: pointer;
 	<script src = "lib/underscore.js" > </script> 
 	<script >
 
-			var width = 1200,
-				height = 1200;
+			var width = window.innerWidth,
+				height = window.innerHeight;
 
 			var continentColors = {
 				Africa: ["#B3542B", "#C05F2B", "#D17D2A", "#CFA421"],
@@ -72,6 +72,12 @@ cursor: pointer;
 				"Wired to Defend": "#ffff66",
 				"Electrifying Action": "#ffcc00",
 				"Shutting Down Trafficking": "#33FFcc"
+			};
+
+			var storyNames = {
+				"Sparking Change": "Sparking Change in* Sub-Saharan Africa",
+				"Safe World For Girls": "Building a Safe* World for Girls",
+				"Fully Charged FLOW": "Fully Charged to Lead"
 			};
 
 			var storyConnectors = {
@@ -277,6 +283,7 @@ cursor: pointer;
 				if (zoomed) {
 
 					zoomed = null;
+					zoomDirection = "out"; 
 
 					applyProperties("zoomOut", "zoomout", selectedStory.replace(/ /g, ""));
 
@@ -288,12 +295,6 @@ cursor: pointer;
 						.scale(baseScale).rotate(currentRotation);
 
 					svg.transition().ease("quad-in-out").duration(600).call(zoom.projection(projection).event);
-
-					setTimeout(function() {
-						setCursor("grab");
-						zoomed = false;
-					}, 700)
-
 
 				}
 			});
@@ -314,13 +315,15 @@ cursor: pointer;
 			var centerPoints = {};
 			var lines = {};
 
-			var label;
+			var labelGroup; 
 
 			var mouseOverStory;
 			var selectedStory;
 
 			var zoomed = false;
 			var inZoom = false; 
+
+			var zoomDirection; 
 
 			var zoomCounter = 0;
 			var ease = d3.ease("quad-in-out");
@@ -329,15 +332,20 @@ cursor: pointer;
 				.projection(projection).on("zoom", function() {
 					inZoom = true; 
 					setCursor("pointer");
-					if (label) {
+					if (labelGroup) {
 						var center = projection(centers["label"]);
 						center[0] -= 30 + ease(zoomCounter / 10) * 40;
 						center[1] += 5;
-						label.attr({
-							"font-size": (13 + ease(zoomCounter / 10) * 6) + "pt",
+						labelGroup.attr({
 							"transform": function(d) {
 								return "translate(" + center + ")";
 							},
+						});
+						d3.selectAll(".label").attr({
+							"font-size": (13 + ease(zoomCounter / 10) * 6) + "pt"
+						});
+						d3.selectAll(".label.bottom").attr({
+							y: (22 + ease(zoomCounter / 10) * 8)
 						});
 						zoomCounter++;
 					}
@@ -352,6 +360,15 @@ cursor: pointer;
 				}).on("zoomend", function() {
 					inZoom = false; 
 					zoomCounter = 0;
+					if(zoomDirection=="in"){
+						zoomed = true; 
+					}else{
+						zoomed = false; 
+						setCursor("grab");
+						d3.selectAll(".label.bottom").attr({
+							y: 22
+						});
+					}
 				});
 
 			svg.call(zoom.event);
@@ -531,10 +548,21 @@ cursor: pointer;
 								center[1] += 5;
 
 								if (!selectedStory && !inZoom) {
-									d3.selectAll(".label").text(story).attr({
+
+									labelGroup.attr({
 										"transform": function(d) {
 											return "translate(" + center + ")";
-										},
+										}
+									});
+
+									var text = storyNames[story] || story;
+									text = text.split("*");
+
+									d3.selectAll(".label.top").text(text[0]).attr({
+										"font-size": "13pt",
+										opacity: 1
+									});
+									d3.selectAll(".label.bottom").text(text[1]).attr({
 										"font-size": "13pt",
 										opacity: 1
 									});
@@ -560,6 +588,8 @@ cursor: pointer;
 
 								if (zoomed == false) {
 
+									zoomDirection = "in"; 
+
 									zoomed = null;
 									//not selector 	
 									selectedStory = story;
@@ -574,9 +604,6 @@ cursor: pointer;
 
 									transition(countryPath.data()[0]);
 
-									setTimeout(function() {
-										zoomed = true;
-									}, 700)
 								}
 
 							};
@@ -651,13 +678,25 @@ cursor: pointer;
 					}
 				});
 
-				label = svg.append("text").attr({
-					class: "label",
+				labelGroup = svg.append("g");
+
+				labelGroup.append("text").attr({
+					class: "label top",
 					fill: "white",
 					"font-family": "Trade Gothic",
 					"font-size": "20pt",
 					"text-anchor": "end",
 					opacity: 0
+				});
+
+				labelGroup.append("text").attr({
+					class: "label bottom",
+					fill: "white",
+					"font-family": "Trade Gothic",
+					"font-size": "20pt",
+					"text-anchor": "end",
+					opacity: 0,
+					y:22
 				});
 
 				setCursor("grab");
@@ -712,22 +751,43 @@ cursor: pointer;
 					o1 = [o0[0] + (m1[0] - m0[0]) / 4, o0[1] + (m0[1] - m1[1]) / 4];
 					o1[1] = Math.min(Math.max(o1[1], -20), 20);
 					currentRotation = [o1[0], o1[1], 0];
+
 				}
 			};
 
 			var rotate = function() {
 				if (manualRotationActivated) {
-					redrawPathsOnRotation(currentRotation);
+					redrawPathsOnManualRotation(currentRotation);
 					animationRequest = requestAnimationFrame(rotate);
 				}
 			};
 
-			var redrawPathsOnRotation = function(rotation) {
+
+			var redrawPathsOnManualRotation = function(rotation){
 				if (!doRotate) {
 					return;
 				}
+				redrawPathsOnRotation(rotation); 
+			};
+
+			var redrawPathsOnRotation = function(rotation) {
+		
 				currentRotation = rotation;
 				projection.rotate(currentRotation);
+
+				var label = d3.selectAll(".label"); 
+
+				if (label[0].length && label.attr("opacity") == 1) {
+					var center = projection(centers["label"]);
+					center[0] -= 30;
+					center[1] += 5;
+					labelGroup.attr({
+						"transform": function(d) {
+							return "translate(" + center + ")";
+						}
+					});
+				}
+
 				d3.selectAll(".globe").attr("d", path);
 				d3.selectAll(".sphere").attr("d", path);
 				d3.selectAll(".route").attr("d", function(d) {
@@ -736,7 +796,19 @@ cursor: pointer;
 				d3.selectAll(".point").attr("d", function(d) {
 					return path(centers[d]);
 				});
+
 			};
+
+			d3.timer(function(){
+
+				if(manualRotationActivated || inZoom || zoomed){
+					return; 
+				}
+
+				currentRotation[0] += 0.15; 
+				redrawPathsOnRotation(currentRotation);
+
+			});
 
 			d3.select("body")
 				.on("mousedown", mouseDown)
