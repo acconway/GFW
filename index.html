@@ -1,820 +1,192 @@
 <!DOCTYPE html>
 <meta charset="utf-8">
 <style>
-
-
-@font-face {
-    font-family: 'Trade Gothic';
-    src: url('tradegothicltstd-webfont.ttf');
-}
-
-body {
-background-color: #252f3d;
-}
-
-svg {
-display: block;
-margin: auto;
-}
-
-.grab {
-cursor: grab;
-cursor: -webkit-grab;
-}
-
-.grabbing {
-cursor: grabbing;
-cursor: -webkit-grabbing;
-}
-
-.pointer {
-cursor: pointer; 
-}
-
-
 </style>
 <body>
 	<script src= "lib/d3.v3.min.js"></script> 
 	<script src = "lib/d3.geo.zoom.js"></script> 
-	<script src = "lib/topojson.v1.min.js" ></script> 
-	<script src = "lib/underscore.js" > </script> 
-	<script >
+	<script src = "lib/topojson.v1.min.js"></script> 
+	<script src = "lib/underscore.js"></script> 
+	<script src = "data.js"></script> 
+	<script>
 
-			var width = window.innerWidth,
-				height = window.innerHeight;
+	var width = window.innerWidth,
+		height = window.innerHeight;
 
-			var continentColors = {
-				Africa: ["#B3542B", "#C05F2B", "#D17D2A", "#CFA421"],
-				Antarctica: ["#56342A"],
-				Asia: ["#4B1E3C", "#531A3F", "#692550", "#5E2550"],
-				Europe: ["#B83D30", "#79292D", "#9A2B29", "#BF2B24", "#BF261B"],
-				"North America": ["#46658C", "#465F80", "#4A6486", "#38557A"],
-				Oceania: ["#56342A", "#3C2820"],
-				"South America": ["#79802D", "#727B37", "#5B642C", "#798F2D"],
-				"Seven seas (open ocean)": ["#56342A"]
-			};
 
-			var stories = {
-				"Sparking Change": ["Burkina Faso", "Kenya", "Uganda"],
-				"Safe World For Girls": ["Malawi", "India"],
-				"Reinventing Equality": ["Croatia", "Georgia"],
-				"Fully Charged FLOW": [ "Bangladesh", "China", "Fiji", "Indonesia", "Kyrgyzstan", "Marshall Islands", "Philippines", "Samoa", "Sri Lanka", "Tajikistan", "Timor-Leste", "Tonga", "Vietnam", /*"Nepal",*/"Cambodia","India", "Pakistan"],
-				"Wired to Defend": ["Guatemala", "Bolivia", "Ecuador", "Mexico", "Honduras", "El Salvador", "Nicaragua"],
-				"Electrifying Action": ["Lebanon", "Jordan"],
-				"Shutting Down Trafficking": ["India", "Indonesia", "Nepal", "Philippines", "Thailand"]
-			};
+	var baseScale = 300;
+	var zoomedScale = 800;
+	var canvas = d3.select("body").append("canvas").attr("width", width).attr("height", height);
 
-			var storyColors = {
-				"Sparking Change": "#66ffff",
-				"Safe World For Girls": "#ff99ff",
-				"Reinventing Equality": "#99ff33",
-				"Fully Charged FLOW": "#ffff33",
-				"Wired to Defend": "#ffff66",
-				"Electrifying Action": "#ffcc00",
-				"Shutting Down Trafficking": "#33FFcc"
-			};
+	var c = canvas.node().getContext("2d");
 
-			var storyNames = {
-				"Sparking Change": "Sparking Change in* Sub-Saharan Africa",
-				"Safe World For Girls": "Building a Safe* World for Girls",
-				"Fully Charged FLOW": "Fully Charged to Lead"
-			};
+	var projection = d3.geo.orthographic().scale(baseScale).translate([width / 2, height / 2]).clipAngle(90).precision(0.1);
 
-			var storyConnectors = {
-					"Shutting Down Trafficking": ["India_Nepal", "India_Thailand", "India_Indonesia", "Nepal_Thailand", "Nepal_Philippines", "Philippines_Thailand", "Philippines_Indonesia", "Indonesia_Thailand"],
-					"Fully Charged FLOW": ["Pakistan_Tajikistan","Pakistan_India",
-						"India_Sri Lanka",
-						"India_Vietnam",
-						"India_China",
-						"India_Kyrgyzstan",
-						"India_Tajikistan",
-						"Tajikistan_Kyrgyzstan",
-						"Kyrgyzstan_China",
-						//"India_Indonesia",
-						//"Kyrgyzstan_Vietnam",
-						"China_Vietnam",
-						"China_Philippines",
-						"Vietnam_Cambodia",
-						"Indonesia_Cambodia",
-						"Sri Lanka_Indonesia",
-						//"Sri Lanka_Bangladesh",
-						"Sri Lanka_Cambodia",
-						"Vietnam_Philippines",
-						"Philippines_Indonesia",
-						"Philippines_Timor-Leste",
-						"Timor-Leste_Fiji",
-						"Timor-Leste_Indonesia",
-						"Fiji_China",
-						"Fiji_Philippines",
-					],
-					"Wired to Defend": ["Mexico_Guatemala","Mexico_Honduras","El Salvador_Ecuador","El Salvador_Guatemala","El Salvador_Nicaragua","Honduras_Guatemala","Honduras_Nicaragua","Nicaragua_Ecuador","Ecuador_Bolivia"],
+	var path = d3.geo.path().projection(projection).context(c);
+	var circle = d3.geo.circle();
 
+	var drawData = {};
 
-					//"Bolivia", "Ecuador", "Mexico", "Mexico_Honduras", "El Salvador", "Nicaragua"
+	var draw = function() {
 
-			};
+		//Don't do anything till our data is loaded 
+		if (_.isEmpty(drawData)) {
+			return;
+		}
 
-			var centerTuning = {
-				"Sparking Change": {},
-				"Reinventing Equality": {},
-				"Wired to Defend": {},
-				"Electrifying Action": {},
-				"Safe World For Girls": {
-					"India": {
-						x: -4,
-						y: -8
-					}
-				},
-				"Fully Charged FLOW": {
-					"Cambodia":{
-						x:1.2,
-						y:0
-					},
-					"Vietnam": {
-						x: -1,
-						y: 5
-					},
-					"India": {
-						x: -3,
-						y: 2
-					},
-					"Nepal": {
-						x: -0.8,
-						y: 0.5
-					},
-					"Philippines": {
-						x: -0.5,
-						y: 2
-					},
-					"Indonesia": {
-						x: -10,
-						y: 2
-					}
-				},
-				"Shutting Down Trafficking": {
-					"India": {
-						x: 3,
-						y: -3.5
-					},
-					"Nepal": {
-						x: 0,
-						y: 0
-					},
-					"Philippines": {
-						x: 2,
-						y: -3.8
-					},
-					"Indonesia": {
-						x: 0,
-						y: 0
-					},
-					"Thailand": {
-						x: -1.6,
-						y: 2
-					}
-				}
-			};
+		c.clearRect(0, 0, width, height);
 
+		//draw background sphere
 
-			var config = {
-				props: {},
-				eventClasses: {
-					pointMouseover: ["point.center.STORY", "point.radius.STORY", "route.STORY"],
-					pointMouseleave: ["point.center.STORY", "point.radius.STORY", "route.STORY", "label"],
-					zoomOut: ["point.radius.STORY", "route.STORY", "point", "route", "label"]
-				},
-				styles: {
-					"point.center.STORY": {
-						mouseover: {
-							attr: {
-								opacity: 1
-							},
-							duration: 0
-						},
-						mouseleave: {
-							attr: {
-								opacity: 0.7
-							},
-							duration: 0
-						}
-					},
-					"point.radius.STORY": {
-						mouseover: {
-							attr: {
-								"fill-opacity": 0.4,
-								"stroke-width": "1.5px"
-							},
-							duration: 0
-						},
-						mouseleave: {
-							attr: {
-								"fill-opacity": 0.2,
-								"stroke-width": "1px"
-							},
-							duration: 0
-						},
-						zoomout: {
-							attr: {
-								"fill-opacity": 0.2,
-								"stroke-width": "1px"
-							},
-							duration: 0
-						}
-					},
-					"route.STORY": {
-						mouseover: {
-							attr: {
-								"stroke-width": "0.6px",
-								opacity: 0.8,
-							},
-							duration: 0
-						},
-						mouseleave: {
-							attr: {
-								"stroke-width": "0.2px",
-								opacity: 0.5
-							},
-							duration: 0
-						},
-						zoomout: {
-							attr: {
-								"stroke-width": "0.2px",
-								opacity: 0.5
-							},
-							duration: 0
-						}
-					},
-					"point": {
-						zoomout: {
-							style: {
-								display: "inline"
-							}
-						}
-					},
-					"route": {
-						zoomout: {
-							style: {
-								display: "inline"
-							}
-						}
-					},
-					"label": {
-						mouseleave: {
-							attr: {
-								opacity: 0
-							}
-						},
-						zoomout: {
-							attr: {
-								opacity: 0
-							},
-							duration: 0
-						}
-					}
+		c.fillStyle = "#343534";
+		c.beginPath(); 
+		path({type: "Sphere"});
+		c.fill();
 
-				}
-			};
 
-			var storyData = {};
+		//fill countries
 
-			var svg = d3.select("body").append("svg").attr("width", width).attr("height", height).attr({
-				fill: "#343534"
-			}).on("click", function() {
-				if (zoomed) {
+		_.each(drawData.countries.features, function(country, index) {
+			var color = continentColors[country.properties.continent][countryColoring[index]]; 
+			c.fillStyle = color;
+			c.beginPath();
+			path(country);
+			c.fill();
+		});
 
-					zoomed = null;
-					zoomDirection = "out"; 
+		//draw borders 
 
-					applyProperties("zoomOut", "zoomout", selectedStory.replace(/ /g, ""));
+		c.strokeStyle = "#163A24";
+		c.lineWidth = 0.6;
+		c.beginPath();
+		path(drawData.borders);
+		c.stroke();
 
-					selectedStory = null;
-					projection.startingRotation = currentRotation;
-					currentRotation = [currentRotation[0], 0, 0];
+		//draw points
 
-					projection
-						.scale(baseScale).rotate(currentRotation);
+		_.each(storyData, function(story) {
+			var pointCenterColor = "rgba(" + story.color[0] + "," + story.color[1] + "," + story.color[2] + "," + 0.8 + ")";
+			c.strokeStyle = pointCenterColor;
+			c.fillStyle = pointCenterColor; 	
+			_.each(story.countries, function(country) {
 
-					svg.transition().ease("quad-in-out").duration(600).call(zoom.projection(projection).event);
+				var countryFeature = drawData.countriesByName[country];
+				if (countryFeature) {
 
-				}
-			});
+					var centroid = d3.geo.centroid(countryFeature);
+					var centerCircle = circle.origin(centroid).angle(1)();
 
-			var countryLayer = svg.append("g");
-			var connectionLayer = svg.append("g");
-			var pointLayer = svg.append("g");
+					c.beginPath();
+					path(centerCircle);
 
-			var baseScale = 300;
-			var zoomedScale = 800;
+					c.stroke();
+					c.fill();
 
-			var projection = d3.geo.orthographic().scale(baseScale).translate([width / 2, height / 2]).clipAngle(90).precision(0.1);
-
-			var path = d3.geo.path().projection(projection);
-			var circle = d3.geo.circle();
-
-			var centers = {};
-			var centerPoints = {};
-			var lines = {};
-
-			var labelGroup; 
-
-			var mouseOverStory;
-			var selectedStory;
-
-			var zoomed = false;
-			var inZoom = false; 
-
-			var zoomDirection; 
-
-			var zoomCounter = 0;
-			var ease = d3.ease("quad-in-out");
-
-			var zoom = d3.geo.zoom()
-				.projection(projection).on("zoom", function() {
-					inZoom = true; 
-					setCursor("pointer");
-					if (labelGroup) {
-						var center = projection(centers["label"]);
-						center[0] -= 30 + ease(zoomCounter / 10) * 40;
-						center[1] += 5;
-						labelGroup.attr({
-							"transform": function(d) {
-								return "translate(" + center + ")";
-							},
-						});
-						d3.selectAll(".label").attr({
-							"font-size": (13 + ease(zoomCounter / 10) * 6) + "pt"
-						});
-						d3.selectAll(".label.bottom").attr({
-							y: (22 + ease(zoomCounter / 10) * 8)
-						});
-						zoomCounter++;
-					}
-					d3.selectAll(".sphere").attr("d", path);
-					d3.selectAll(".globe").attr("d", path);
-					d3.selectAll(".route").attr("d", function(d) {
-						return path(lines[d]);
-					});
-					d3.selectAll(".point").attr("d", function(d) {
-						return path(centers[d]);
-					});
-				}).on("zoomend", function() {
-					inZoom = false; 
-					zoomCounter = 0;
-					if(zoomDirection=="in"){
-						zoomed = true; 
-					}else{
-						zoomed = false; 
-						setCursor("grab");
-						d3.selectAll(".label.bottom").attr({
-							y: 22
-						});
-					}
-				});
-
-			svg.call(zoom.event);
-
-
-			function setCursor(type) {
-
-				var classes = {
-					"grab": false,
-					"grabbing": false,
-					"pointer": false
-				};
-
-				classes[type] = true;
-
-				d3.selectAll(".sphere,.globe,.label").classed(classes);
-
-			};
-
-			function transition(country) {
-
-				var centroid = d3.geo.centroid(country);
-
-				projection.startingRotation = currentRotation;
-				currentRotation = [-centroid[0], -centroid[1], 0];
-
-				projection.rotate(currentRotation)
-					.scale(zoomedScale)
-					.translate([width / 2, height / 2]);
-
-				svg.transition()
-					.ease("quad-in-out")
-					.duration(600) // see https://github.com/mbostock/d3/pull/2045
-					.call(zoom.projection(projection).event);
-			};
-
-			function applyProperties(eventClass, eventName, storyClassName) {
-				_.each(config.eventClasses[eventClass], function(className) {
-
-					if (!storyClassName) {
-						return;
-					}
-
-					var thisConfig = config.styles[className][eventName];
-					var selection = d3.selectAll("." + className.replace("STORY", storyClassName || ""));
-
-					if (thisConfig.duration) {
-						selection.transition().attr(thisConfig.attr).style(thisConfig.style)
-							.duration(thisConfig.duration);
-					} else {
-						selection.attr(thisConfig.attr).style(thisConfig.style);
-					}
-
-				});
-			};
-
-			countryLayer.append("path")
-				.datum({
-					type: "Sphere"
-				})
-				.attr({
-					class: "sphere",
-					"d": path,
-					"fill": "#343534"
-				});
-
-
-			d3.json("world.json", function(error, world) {
-				if (error) return console.error(error);
-
-				var colors = [2, 3, 4, 2, 2, 0, 0, 0, 0, 1, 2, 2, 2, 2, 1, 1, 3, 0, 3, 3, 2, 1, 0, 1, 0, 3, 3, 1, 2, 0, 1, 0, 2, 0, 1, 1, 1, 0, 1, 0, 3, 0, 3, 1, 1, 1, 0, 1, 1, 0, 1, 2, 2, 0, 0, 1, 0, 1, 1, 2, 1, 1, 2, 1, 1, 0, 0, 1, 1, 0, 0, 2, 1, 2, 0, 1, 0, 0, 0, 0, 0, 2, 0, 2, 0, 0, 3, 0, 3, 2, 2, 2, 2, 2, 0, 0, 1, 3, 2, 2, 2, 0, 1, 0, 2, 0, 2, 2, 0, 3, 3, 0, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 0, 2, 0, 0, 2, 0, 2, 1, 3, 1, 0, 0, 0, 3, 0, 1, 0, 1, 0, 0, 0, 2, 0, 1, 1, 2, 0, 3, 0, 1, 1, 1, 0, 1, 3, 0, 0, 0, 0, 2, 0, 1, 2, 1, 1, 0, 1, 2, 0, 0, 2, 2, 2, 1];
-
-				var countries = topojson.feature(world, world.objects.countries).features;
-
-				var neighbors = topojson.neighbors(world.objects.countries.geometries);
-
-				/*
-				tuning up 
-				*/
-				_.each(countries, function(country) {
-					//Put russia in asia 
-					if (country.properties['name_long'] == "Russian Federation") {
-						country.properties.continent = "Asia";
-					}
-					//French Guiana in SA
-					if (country.properties['name_long'] == "France") {
-						countries.push({
-							geometry: {
-								type: "MultiPolygon",
-								coordinates: country.geometry.coordinates.splice(0, 1)
-							},
-							id: "FRA",
-							properties: {
-								continent: "South America",
-								name_long: "French Guiana"
-							},
-							type: "feature"
-						});
-					}
-					//Trinidad and tobago in NA
-					if (country.properties['name_long'] == "Trinidad and Tobago") {
-						country.properties.continent = "South America";
-					}
-					//Icelenad in NA 
-					if (country.properties['name_long'] == "Iceland") {
-						country.properties.continent = "North America";
-					}
-				});
-
-
-				countryLayer.selectAll("country")
-					.data(countries)
-					.enter().append("path")
-					.attr("class", function(d) {
-						return "globe country " + d.properties["name_long"].replace(/ /g, "") + " continent " + d.properties.continent.replace(/ /g, "");
-					})
-					.attr("d", path).style("fill", function(d, i) {
-						var continent = continentColors[d.properties.continent];
-						return continent && continent.length ? continent[colors[i] % continent.length] : "black";
-					}).attr({
-						"stroke-width": "0.6px",
-						stroke: "#163A24"
-					});
-
-				/*
-				add points
-				*/
-				var counter = 0;
-
-				_.each(stories, function(countries, story) {
-
-					var storyClassName = story.replace(/ /g, "");
-
-					storyData[story] = {
-						points: []
-					};
-					_.each(countries, function(country) {
-						var countryPath = d3.select("." + country.replace(/ /g, ""));
-						if (countryPath.empty()) {
-							console.log("missing country " + country);
-						} else {
-
-							var centroid = d3.geo.centroid(countryPath.data()[0]);
-
-							centerPoints[story+country] = centroid;
-
-							centroid[0] += centerTuning[story][country] ? centerTuning[story][country].x : 0;
-							centroid[1] += centerTuning[story][country] ? centerTuning[story][country].y : 0;
-
-							storyData[story].points.push({
-								"country": story+country,
-								center: centroid
-							});
-
-							var id = (story + country).replace(/ /g, "");
-
-							var centerID = id + "center";
-							var radiusID = id + "radius";
-
-							var centerCircle = circle.origin(centroid).angle(1)();
-							var radiusCircle = circle.origin(centroid).angle(3.5)();
-
-							centers[centerID] = centerCircle;
-							centers[radiusID] = radiusCircle;
-
-							var mouseover = function() {
-
-								if (manualRotationActivated || inZoom) {
-									return;
-								}
-
-								mouseOverStory = storyClassName;
-
-								var center = projection(centroid);
-								centers["label"] = centroid;
-								center[0] -= 30;
-								center[1] += 5;
-
-								if (!selectedStory && !inZoom) {
-
-									labelGroup.attr({
-										"transform": function(d) {
-											return "translate(" + center + ")";
-										}
-									});
-
-									var text = storyNames[story] || story;
-									text = text.split("*");
-
-									d3.selectAll(".label.top").text(text[0]).attr({
-										"font-size": "13pt",
-										opacity: 1
-									});
-									d3.selectAll(".label.bottom").text(text[1]).attr({
-										"font-size": "13pt",
-										opacity: 1
-									});
-								}
-
-								applyProperties("pointMouseover", "mouseover", storyClassName);
-
-							};
-
-							var mouseleave = function() {
-
-								mouseOverStory = null;
-
-								if (selectedStory == story) {
-									return;
-								}
-
-								applyProperties("pointMouseleave", "mouseleave", storyClassName);
-
-							};
-
-							var click = function() {
-
-								if (zoomed == false) {
-
-									zoomDirection = "in"; 
-
-									zoomed = null;
-									//not selector 	
-									selectedStory = story;
-
-									d3.selectAll(".route:not(." + storyClassName + ")").style({
-										display: "none"
-									});
-
-									d3.selectAll(".point:not(." + storyClassName + ")").style({
-										display: "none"
-									});
-
-									transition(countryPath.data()[0]);
-
-								}
-
-							};
-
-							pointLayer.append("path").data([radiusID]).attr("class", "point radius " + storyClassName).attr("d", path(radiusCircle)).attr({
-								fill: storyColors[story],
+				/*	fill: storyColors[story],
 								stroke: storyColors[story],
 								"stroke-opacity": 0.2,
-								"fill-opacity": 0.2,
-								cursor: "pointer"
-							}).on("mouseover", mouseover).on("mouseleave", mouseleave).on("click", click);
+								"fill-opacity": 0.2,*/
 
-							pointLayer.append("path").data([centerID]).attr("class", "point center " + storyClassName).attr("d", path(centerCircle)).attr({
-								fill: storyColors[story] || "#ffff00",
-								opacity: 0.8,
-								cursor: "pointer"
-							}).on("mouseover", mouseover).on("mouseleave", mouseleave).on("click", click);
-
-						}
-					});
-				});
-
-				/*
-				add connections
-				*/
-
-				//data 
-
-				var connectionCounter = 0;
-
-				_.each(storyData, function(story, name) {
-
-
-					var addConnection = function(endpoint0, endpoint1) {
-
-						var line = {
-							type: "LineString",
-							coordinates: [endpoint0, endpoint1]
-						};
-
-						var lookupID = name + (connectionCounter++);
-						lines[lookupID] = line;
-
-						connectionLayer.append("path").data([lookupID]).attr("class", "route " + name.replace(/ /g, "")).attr("d", path(line)).attr({
-							fill: "none",
-							stroke: storyColors[name] || "#ffff00",
-							"stroke-width": "0.2px",
-							opacity: 0.5
-						});
-
-					};
-
-					if (storyConnectors[name]) {
-
-						_.each(storyConnectors[name], function(connection) {
-
-							var endpoints = connection.split("_");
-
-							addConnection(centerPoints[name+endpoints[0]], centerPoints[name+endpoints[1]]);
-
-						});
-
-					} else {
-
-						_.each(story.points, function(country, index) {
-
-							for (var i = index + 1; i < story.points.length; i++) {
-								addConnection(country.center, story.points[i].center);
-							}
-						});
-
-					}
-				});
-
-				labelGroup = svg.append("g");
-
-				labelGroup.append("text").attr({
-					class: "label top",
-					fill: "white",
-					"font-family": "Trade Gothic",
-					"font-size": "20pt",
-					"text-anchor": "end",
-					opacity: 0
-				});
-
-				labelGroup.append("text").attr({
-					class: "label bottom",
-					fill: "white",
-					"font-family": "Trade Gothic",
-					"font-size": "20pt",
-					"text-anchor": "end",
-					opacity: 0,
-					y:22
-				});
-
-				setCursor("grab");
-
+				}
 			});
+		});
+	}
+
+	d3.json("world.json", function(error, world) {
+		if (error) return console.error(error);
+
+		var countries = topojson.feature(world, world.objects.countries);
+		drawData.countries = countries;
+
+		drawData.countriesByName = {};
+
+		_.each(countries.features,function(feature){
+			drawData.countriesByName[feature.properties["name_long"]] = feature;
+		}); 
+
+		drawData.borders = topojson.mesh(world, world.objects.countries);
+		draw();
+
+	});
+
+	var manualRotationActivated;
+	var animationRequest;
+	var m0;
+	var o0;
+	var doRotate;
+
+	var currentRotation = [0, 0, 0];
+	var manualRotationActivated = false;
+
+	var mouseDown = function() {
+		m0 = [d3.event.pageX, d3.event.pageY];
+		o0 = projection.rotate();
+		manualRotationActivated = true;
+		doRotate = false;
+		animationRequest = requestAnimationFrame(rotate);
+		d3.event.preventDefault();
+	};
+
+	var mouseUp = function() {
+		doRotate = false;
+		manualRotationActivated = false;
+		if (m0) {
+			m0 = null;
+		}
+	};
+
+	var mouseMove = function() {
+		doRotate = true;
+		var m1, o1;
+		if (m0) {
+			m1 = [d3.event.pageX, d3.event.pageY];
+			o1 = [o0[0] + (m1[0] - m0[0]) / 4, o0[1] + (m0[1] - m1[1]) / 4];
+			o1[1] = Math.min(Math.max(o1[1], -20), 20);
+			currentRotation = [o1[0], o1[1], 0];
+
+		}
+	};
+
+	var rotate = function() {
+		if (manualRotationActivated) {
+			redrawPathsOnManualRotation(currentRotation);
+			animationRequest = requestAnimationFrame(rotate);
+		}
+	};
 
 
-			/*
-			Label
-			*/
+	var redrawPathsOnManualRotation = function(rotation) {
+		if (!doRotate) {
+			return;
+		}
+		redrawPathsOnRotation(rotation);
+	};
 
-			/*
-			Interaction behavior
-			*/
+	var redrawPathsOnRotation = function(rotation) {
 
-			var manualRotationActivated;
-			var animationRequest;
-			var m0;
-			var o0;
-			var doRotate;
+		currentRotation = rotation;
+		projection.rotate(currentRotation);
 
-			var currentRotation = [0, 0, 0];
-			var manualRotationActivated = false;
+		draw();
+	};
 
-			var mouseDown = function() {
-				if (zoomed == true) {
-					return;
-				}
-				setCursor("grabbing");
-				m0 = [d3.event.pageX, d3.event.pageY];
-				o0 = projection.rotate();
-				manualRotationActivated = true;
-				doRotate = false;
-				animationRequest = requestAnimationFrame(rotate);
-				d3.event.preventDefault();
-			};
+	d3.timer(function() {
 
-			var mouseUp = function() {
-				setCursor("grab");
-				doRotate = false;
-				manualRotationActivated = false;
-				if (m0) {
-					m0 = null;
-				}
-			};
+		if (manualRotationActivated) {
+			return;
+		}
 
-			var mouseMove = function() {
-				doRotate = true;
-				var m1, o1;
-				if (m0) {
-					m1 = [d3.event.pageX, d3.event.pageY];
-					o1 = [o0[0] + (m1[0] - m0[0]) / 4, o0[1] + (m0[1] - m1[1]) / 4];
-					o1[1] = Math.min(Math.max(o1[1], -20), 20);
-					currentRotation = [o1[0], o1[1], 0];
+		currentRotation[0] += 0.15;
+		redrawPathsOnRotation(currentRotation);
 
-				}
-			};
+	});
 
-			var rotate = function() {
-				if (manualRotationActivated) {
-					redrawPathsOnManualRotation(currentRotation);
-					animationRequest = requestAnimationFrame(rotate);
-				}
-			};
-
-
-			var redrawPathsOnManualRotation = function(rotation){
-				if (!doRotate) {
-					return;
-				}
-				redrawPathsOnRotation(rotation); 
-			};
-
-			var redrawPathsOnRotation = function(rotation) {
-		
-				currentRotation = rotation;
-				projection.rotate(currentRotation);
-
-				var label = d3.selectAll(".label"); 
-
-				if (label[0].length && label.attr("opacity") == 1) {
-					var center = projection(centers["label"]);
-					center[0] -= 30;
-					center[1] += 5;
-					labelGroup.attr({
-						"transform": function(d) {
-							return "translate(" + center + ")";
-						}
-					});
-				}
-
-				d3.selectAll(".globe").attr("d", path);
-				d3.selectAll(".sphere").attr("d", path);
-				d3.selectAll(".route").attr("d", function(d) {
-					return path(lines[d]);
-				});
-				d3.selectAll(".point").attr("d", function(d) {
-					return path(centers[d]);
-				});
-
-			};
-
-			d3.timer(function(){
-
-				if(manualRotationActivated || inZoom || zoomed){
-					return; 
-				}
-
-				currentRotation[0] += 0.15; 
-				redrawPathsOnRotation(currentRotation);
-
-			});
-
-			d3.select("body")
-				.on("mousedown", mouseDown)
-				.on("mousemove", mouseMove)
-				.on("mouseup", mouseUp)
-				.on("touchstart", mouseDown)
-				.on("touchmove", mouseMove)
-				.on("touchend", mouseUp);
-		</script>
+	d3.select("body")
+		.on("mousedown", mouseDown)
+		.on("mousemove", mouseMove)
+		.on("mouseup", mouseUp)
+		.on("touchstart", mouseDown)
+		.on("touchmove", mouseMove)
+		.on("touchend", mouseUp);
+	</script>
+<body>
