@@ -13,14 +13,13 @@
 	var width = window.innerWidth,
 		height = window.innerHeight;
 
-
 	var baseScale = 300;
 	var zoomedScale = 800;
-	var canvas = d3.select("body").append("canvas").attr("width", width).attr("height", height);
+	var canvas = d3.select("body").append("canvas").attr("width", width).attr("height", height); 
 
 	var c = canvas.node().getContext("2d");
 
-	var projection = d3.geo.orthographic().scale(baseScale).translate([width / 2, height / 2]).clipAngle(90).precision(0.1);
+	var projection = d3.geo.orthographic().scale(baseScale).translate([width / 2, height / 2]).clipAngle(90).precision(0);
 
 	var path = d3.geo.path().projection(projection).context(c);
 	var circle = d3.geo.circle();
@@ -66,8 +65,8 @@
 
 		_.each(storyData, function(story) {
 			var pointCenterColor = "rgba(" + story.color[0] + "," + story.color[1] + "," + story.color[2] + "," + 0.8 + ")";
-			c.strokeStyle = pointCenterColor;
-			c.fillStyle = pointCenterColor; 	
+			var radiusCenterColor = "rgba(" + story.color[0] + "," + story.color[1] + "," + story.color[2] + "," + 0.2 + ")";
+		
 			_.each(story.countries, function(country) {
 
 				var countryFeature = drawData.countriesByName[country];
@@ -76,16 +75,25 @@
 					var centroid = d3.geo.centroid(countryFeature);
 					var centerCircle = circle.origin(centroid).angle(1)();
 
+					console.log(centroid);
+
 					c.beginPath();
 					path(centerCircle);
 
+					c.strokeStyle = pointCenterColor;
+					c.fillStyle = pointCenterColor; 	
 					c.stroke();
 					c.fill();
 
-				/*	fill: storyColors[story],
-								stroke: storyColors[story],
-								"stroke-opacity": 0.2,
-								"fill-opacity": 0.2,*/
+					var radiusCircle = circle.origin(centroid).angle(3.5)();
+
+					c.beginPath();
+					path(radiusCircle);
+
+					c.strokeStyle = radiusCenterColor;
+					c.fillStyle = radiusCenterColor; 	
+					c.stroke();
+					c.fill();
 
 				}
 			});
