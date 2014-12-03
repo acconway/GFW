@@ -24,6 +24,8 @@
 	var path = d3.geo.path().projection(projection).context(c);
 	var circle = d3.geo.circle();
 
+	var currentSelection;
+
 	var drawData = {};
 
 	var draw = function() {
@@ -38,15 +40,16 @@
 		//draw background sphere
 
 		c.fillStyle = "#343534";
-		c.beginPath(); 
-		path({type: "Sphere"});
+		c.beginPath();
+		path({
+			type: "Sphere"
+		});
 		c.fill();
-
 
 		//fill countries
 
 		_.each(drawData.countries.features, function(country, index) {
-			var color = continentColors[country.properties.continent][countryColoring[index]]; 
+			var color = continentColors[country.properties.continent][countryColoring[index]];
 			c.fillStyle = color;
 			c.beginPath();
 			path(country);
@@ -64,41 +67,70 @@
 		//draw points
 
 		_.each(storyData, function(story) {
-			var pointCenterColor = "rgba(" + story.color[0] + "," + story.color[1] + "," + story.color[2] + "," + 0.8 + ")";
-			var radiusCenterColor = "rgba(" + story.color[0] + "," + story.color[1] + "," + story.color[2] + "," + 0.2 + ")";
-		
+
+			var isCurrentStory = currentSelection == story;
+
+			var pointCenterColor = "rgba(" + story.color[0] + "," + story.color[1] + "," + story.color[2] + "," + (isCurrentStory ? 1 : 0.8) + ")";
+			var radiusCenterColor = "rgba(" + story.color[0] + "," + story.color[1] + "," + story.color[2] + "," + (isCurrentStory ? 0.4 : 0.2) + ")";
+			var connectionColor = "rgba(" + story.color[0] + "," + story.color[1] + "," + story.color[2] + "," + (isCurrentStory ? 0.8 : 0.5) + ")";
+
 			_.each(story.countries, function(country) {
 
-				var countryFeature = drawData.countriesByName[country];
-				if (countryFeature) {
+				var countryData = story.objects[country];
 
-					var centroid = d3.geo.centroid(countryFeature);
-					var centerCircle = circle.origin(centroid).angle(1)();
-
-					console.log(centroid);
+				if (countryData) {
 
 					c.beginPath();
-					path(centerCircle);
+					path(countryData.pointCircle);
 
 					c.strokeStyle = pointCenterColor;
-					c.fillStyle = pointCenterColor; 	
+					c.fillStyle = pointCenterColor;
 					c.stroke();
 					c.fill();
 
-					var radiusCircle = circle.origin(centroid).angle(3.5)();
-
 					c.beginPath();
-					path(radiusCircle);
+					path(countryData.radiusCircle);
 
 					c.strokeStyle = radiusCenterColor;
-					c.fillStyle = radiusCenterColor; 	
+					c.fillStyle = radiusCenterColor;
 					c.stroke();
 					c.fill();
 
 				}
 			});
+
+			var connectors = {
+				type: "MultiLineString",
+				coordinates: []
+			};
+
+			c.beginPath();
+			c.lineWidth = 0.2;
+			c.strokeStyle = connectionColor;
+
+			var addConnection = function(endpoint0, endpoint1) {
+				connectors.coordinates.push([endpoint0, endpoint1]);
+			};
+
+			if (story.connectors) {
+
+				_.each(story.connectors, function(connection) {
+					var endpoints = connection.split("_");
+					addConnection(story.objects[endpoints[0]].center, story.objects[endpoints[1]].center);
+				});
+
+			} else {
+				_.each(story.countries, function(country, index) {
+					for (var i = index + 1; i < story.countries.length; i++) {
+						addConnection(story.objects[country].center, story.objects[story.countries[i]].center);
+					}
+				});
+			}
+
+			path(connectors);
+			c.stroke();
 		});
-	}
+	};
 
 	d3.json("world.json", function(error, world) {
 		if (error) return console.error(error);
@@ -109,8 +141,34 @@
 		drawData.countriesByName = {};
 
 		_.each(countries.features,function(feature){
+
 			drawData.countriesByName[feature.properties["name_long"]] = feature;
+
 		}); 
+
+		_.each(storyData,function(story){
+
+			story.objects = {};
+
+			_.each(story.countries,function(countryName){
+
+				var country = drawData.countriesByName[countryName];
+
+				var center = d3.geo.centroid(country); 
+
+				var hasTuning = story.centerTuning && story.centerTuning[countryName]; 
+
+				center[0] += hasTuning ? story.centerTuning[countryName].x : 0;
+				center[1] += hasTuning ? story.centerTuning[countryName].y : 0;
+
+				story.objects[countryName] = {
+					center:center,
+					pointCircle:circle.origin(center).angle(1)(),
+					radiusCircle:circle.origin(center).angle(3.5)()
+				}
+
+			});
+		});
 
 		drawData.borders = topojson.mesh(world, world.objects.countries);
 		draw();
@@ -144,6 +202,26 @@
 	};
 
 	var mouseMove = function() {
+
+		//Calculate mouseover 
+
+		currentSelection = null; 
+
+		_.each(storyData,function(story){
+			_.each(story.objects,function(obj){
+
+				var currCenter = projection(obj.center)
+				
+				var xdist = Math.abs(currCenter[0] - d3.event.pageX);
+				var ydist = Math.abs(currCenter[1] - d3.event.pageY);
+
+				if(xdist <= 20 && ydist <= 20){
+					currentSelection = story; 
+				}
+
+			});
+		});
+
 		doRotate = true;
 		var m1, o1;
 		if (m0) {
@@ -196,5 +274,6 @@
 		.on("touchstart", mouseDown)
 		.on("touchmove", mouseMove)
 		.on("touchend", mouseUp);
+
 	</script>
 <body>
