@@ -9,7 +9,18 @@
 }
 
 body {
-background-color: #252f3d;
+	height:100%;
+	background-color: #222222;
+	margin: 0;
+	padding: 0;
+}
+
+.main {
+	width:90%;
+	height:90%;
+	margin: auto;
+	display:block;
+	background-image:radial-gradient(circle farthest-side at 50% 50%, rgb(68, 68, 68) 0%, rgb(34, 34, 34) 100%);
 }
 
 svg {
@@ -34,13 +45,14 @@ cursor: pointer;
 
 </style>
 <body>
+	<div class="main"/>
 	<script src= "lib/d3.v3.min.js"></script> 
 	<script src = "lib/d3.geo.zoom.js"></script> 
 	<script src = "lib/topojson.v1.min.js" ></script> 
 	<script src = "lib/underscore.js" > </script> 
 	<script >
 
-			var width = window.innerWidth,
+			var width =  d3.select(".main")[0][0].clientWidth,
 				height = window.innerHeight;
 
 			var continentColors = {
@@ -277,7 +289,7 @@ cursor: pointer;
 
 			var storyData = {};
 
-			var svg = d3.select("body").append("svg").attr("width", width).attr("height", height).attr({
+			var svg = d3.selectAll(".main").append("svg").attr("width", width).attr("height", height).attr({
 				fill: "#343534"
 			}).on("click", function() {
 				if (zoomed) {
@@ -432,7 +444,7 @@ cursor: pointer;
 				.attr({
 					class: "sphere",
 					"d": path,
-					"fill": "#343534"
+					"fill": "#242e3b"
 				});
 
 
@@ -818,3 +830,4 @@ cursor: pointer;
 				.on("touchmove", mouseMove)
 				.on("touchend", mouseUp);
 		</script>
+	</body>
