@@ -1,6 +1,13 @@
 <!DOCTYPE html>
 <meta charset="utf-8">
 <style>
+@font-face {
+    font-family: 'TradeGothic';
+    src: url('2CC1A7_1_0.ttf');
+}
+body {
+	background-color: #222222;
+} 
 </style>
 <body>
 	<script src= "lib/d3.v3.min.js"></script> 
@@ -15,10 +22,22 @@
 
 	var baseScale = 300;
 	var zoomedScale = 800;
-	var canvas = d3.select("body").append("canvas").attr("width", width).attr("height", height); 
+	var canvas = d3.select("body").append("canvas").attr("width", width).attr("height", height).style({
+		 position:"absolute",
+    	left:"0px",
+    	top:"0px"
+	}); 
 
+	var tcanvas = document.createElement('canvas');
+	var tctx = tcanvas.getContext('2d');
+
+	tcanvas.width = width;
+	tcanvas.height = height;
+	tctx.textAlign = "end";
+	tctx.textBaseline = 'top';
+	tctx.font = "21px TradeGothic"; 
+	
 	var c = canvas.node().getContext("2d");
-
 	var projection = d3.geo.orthographic().scale(baseScale).translate([width / 2, height / 2]).clipAngle(90).precision(0);
 
 	var path = d3.geo.path().projection(projection).context(c);
@@ -27,6 +46,17 @@
 	var currentSelection;
 
 	var drawData = {};
+
+	var test = 200; 
+	
+	var getDistanceToHorizon = function(coordinates) {
+
+		return d3.geo.distance(coordinates, [-projection.rotate()[0],projection.rotate()[1]]);
+
+	};
+
+
+		var counter = 0; 
 
 	var draw = function() {
 
@@ -39,7 +69,7 @@
 
 		//draw background sphere
 
-		c.fillStyle = "#343534";
+		c.fillStyle = "#242e3b";
 		c.beginPath();
 		path({
 			type: "Sphere"
@@ -68,7 +98,7 @@
 
 		_.each(storyData, function(story) {
 
-			var isCurrentStory = currentSelection == story;
+			var isCurrentStory = currentSelection && currentSelection.story == story;
 
 			var pointCenterColor = "rgba(" + story.color[0] + "," + story.color[1] + "," + story.color[2] + "," + (isCurrentStory ? 1 : 0.8) + ")";
 			var radiusCenterColor = "rgba(" + story.color[0] + "," + story.color[1] + "," + story.color[2] + "," + (isCurrentStory ? 0.4 : 0.2) + ")";
@@ -130,6 +160,35 @@
 			path(connectors);
 			c.stroke();
 		});
+
+		//draw label 
+		
+		if(currentSelection){
+
+			var	currCenter = projection(currentSelection.center);
+			tctx.clearRect(0,0,width,height);
+
+			var linesSplit = currentSelection.story.displayName.split("_");
+			var styleSplit = linesSplit[0].split("*");;
+
+			tctx.fillStyle="white";
+			tctx.fillText(styleSplit[1],300, 0);
+
+			tctx.fillStyle="#ffff00";
+			tctx.fillText(styleSplit[0].toUpperCase(),302-tctx.measureText(styleSplit[1]).width, 0);
+
+			if(linesSplit[1]){
+				tctx.fillStyle="white";
+				tctx.fillText(linesSplit[1],300, 25);
+			}
+
+			currCenter[0] -= 330;
+			currCenter[1] -= 10;
+
+			c.drawImage(tcanvas, currCenter[0], currCenter[1]);
+
+		}
+
 	};
 
 	d3.json("world.json", function(error, world) {
@@ -154,18 +213,24 @@
 
 				var country = drawData.countriesByName[countryName];
 
-				var center = d3.geo.centroid(country); 
+			if (country) {
 
-				var hasTuning = story.centerTuning && story.centerTuning[countryName]; 
+
+
+				var center = d3.geo.centroid(country);
+
+				var hasTuning = story.centerTuning && story.centerTuning[countryName];
 
 				center[0] += hasTuning ? story.centerTuning[countryName].x : 0;
 				center[1] += hasTuning ? story.centerTuning[countryName].y : 0;
 
 				story.objects[countryName] = {
-					center:center,
-					pointCircle:circle.origin(center).angle(1)(),
-					radiusCircle:circle.origin(center).angle(3.5)()
+					center: center,
+					pointCircle: circle.origin(center).angle(1)(),
+					radiusCircle: circle.origin(center).angle(3.5)()
 				}
+
+			}
 
 			});
 		});
@@ -215,8 +280,11 @@
 				var xdist = Math.abs(currCenter[0] - d3.event.pageX);
 				var ydist = Math.abs(currCenter[1] - d3.event.pageY);
 
-				if(xdist <= 20 && ydist <= 20){
-					currentSelection = story; 
+				if (xdist <= 20 && ydist <= 20) {
+					currentSelection = {
+						center: obj.center,
+						story: story
+					};
 				}
 
 			});
@@ -256,8 +324,9 @@
 		draw();
 	};
 
-	d3.timer(function() {
+	d3.timer(function(elapsed) {
 
+	
 		if (manualRotationActivated) {
 			return;
 		}

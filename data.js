@@ -12,12 +12,12 @@ var continentColors = {
 var storyData = {
 	"Sparking Change": {
 		color: "#66ffff",
-		displayName: "Sparking Change in* Sub-Saharan Africa",
+		displayName: "Sparking Change* in_ Sub-Saharan Africa",
 		countries: ["Burkina Faso", "Kenya", "Uganda"]
 	},
 	"Safe World For Girls": {
 		color: "#ff99ff",
-		displayName: "Building a Safe* World for Girls",
+		displayName: "Building* a Safe_ World for Girls",
 		countries: ["Malawi", "India"],
 		centerTuning: {
 			"India": {
@@ -28,11 +28,12 @@ var storyData = {
 	},
 	"Reinventing Equality": {
 		color: "#99ff33",
+		displayName: "Reinventing* Equality",
 		countries: ["Croatia", "Georgia"]
 	},
 	"Fully Charged FLOW": {
 		color: "#ffff33",
-		displayName: "Fully Charged to Lead",
+		displayName: "Fully Charged*_ to Lead",
 		countries: ["Bangladesh", "China", "Fiji", "Indonesia", "Kyrgyzstan", "Marshall Islands", "Philippines", "Samoa", "Sri Lanka", "Tajikistan", "Timor-Leste", "Tonga", "Vietnam", /*"Nepal",*/ "Cambodia", "India", "Pakistan"],
 		centerTuning: {
 			"Cambodia": {
@@ -88,14 +89,17 @@ var storyData = {
 	},
 	"Wired to Defend": {
 		color: "#ffff66",
+		displayName:"Wired* to Defend",
 		countries: ["Guatemala", "Bolivia", "Ecuador", "Mexico", "Honduras", "El Salvador", "Nicaragua"],
 		connectors: ["Mexico_Guatemala", "Mexico_Honduras", "El Salvador_Ecuador", "El Salvador_Guatemala", "El Salvador_Nicaragua", "Honduras_Guatemala", "Honduras_Nicaragua", "Nicaragua_Ecuador", "Ecuador_Bolivia"]
 	},
 	"Electrifying Action": {
+		displayName:"Electrifying *Action",
 		color: "#ffcc00",
 		countries: ["Lebanon", "Jordan"]
 	},
 	"Shutting Down Trafficking": {
+		displayName:"Shutting Down*_ Trafficking",
 		color: "#33FFcc",
 		countries: ["India", "Indonesia", "Nepal", "Philippines", "Thailand"],
 		centerTuning: {
