@@ -14,6 +14,7 @@ body {
 	<script src = "lib/d3.geo.zoom.js"></script> 
 	<script src = "lib/topojson.v1.min.js"></script> 
 	<script src = "lib/underscore.js"></script> 
+	<script src = "lib/hammer.js"></script> 
 	<script src = "data.js"></script> 
 	<script>
 
@@ -21,23 +22,45 @@ body {
 		height = window.innerHeight;
 
 	var baseScale = 300;
+	var currScale = 1; 
 	var zoomedScale = 800;
+
+	var pinching = false; 
+
 	var canvas = d3.select("body").append("canvas").attr("width", width).attr("height", height).style({
 		 position:"absolute",
     	left:"0px",
     	top:"0px"
 	}); 
 
+	var hammertime = new Hammer(d3.select("body").node(), {});
+
+	hammertime.get('pinch').set({ enable: true });
+	hammertime.on('pinch', function(e) {
+		currScale = e.scale;
+		projection.scale(currScale*baseScale);
+		draw(); 
+	});
+	hammertime.on("pinchstart",function(e){
+		pinching = true; 
+	});
+	hammertime.on('pinchend',function(e){
+		baseScale = currScale*baseScale;
+		currScale = 1; 
+		pinching = false; 
+	});
+
 	var tcanvas = document.createElement('canvas');
 	var tctx = tcanvas.getContext('2d');
 
 	tcanvas.width = width;
 	tcanvas.height = height;
+
 	tctx.textAlign = "end";
 	tctx.textBaseline = 'top';
-	tctx.font = "21px TradeGothic"; 
-	
+
 	var c = canvas.node().getContext("2d");
+
 	var projection = d3.geo.orthographic().scale(baseScale).translate([width / 2, height / 2]).clipAngle(90).precision(0);
 
 	var path = d3.geo.path().projection(projection).context(c);
@@ -47,16 +70,31 @@ body {
 
 	var drawData = {};
 
-	var test = 200; 
-	
-	var getDistanceToHorizon = function(coordinates) {
+	var zoomed = false;
+	var inZoom = false; 
 
-		return d3.geo.distance(coordinates, [-projection.rotate()[0],projection.rotate()[1]]);
+	var zoomDirection; 
+	var selectedStory; 
 
-	};
+	var zoomCounter = 0;
+	var ease = d3.ease("quad-in-out");
 
+	var zoom = d3.geo.zoom()
+		.projection(projection).on("zoom", function() {
+			inZoom = true;
+			draw && draw();
+			zoomCounter++;
+		}).on("zoomend", function() {
+			inZoom = false;
+			zoomCounter = 0;
+			if (zoomDirection == "in") {
+				zoomed = true;
+			} else {
+				zoomed = false;
+			}
+		});
 
-		var counter = 0; 
+	canvas.call(zoom.event);
 
 	var draw = function() {
 
@@ -64,6 +102,8 @@ body {
 		if (_.isEmpty(drawData)) {
 			return;
 		}
+
+		var currSelect = currentSelection || selectedStory; 
 
 		c.clearRect(0, 0, width, height);
 
@@ -98,7 +138,11 @@ body {
 
 		_.each(storyData, function(story) {
 
-			var isCurrentStory = currentSelection && currentSelection.story == story;
+			if(selectedStory && story != selectedStory.story){
+				return; 
+			}
+
+			var isCurrentStory = currSelect && currSelect.story == story;
 
 			var pointCenterColor = "rgba(" + story.color[0] + "," + story.color[1] + "," + story.color[2] + "," + (isCurrentStory ? 1 : 0.8) + ")";
 			var radiusCenterColor = "rgba(" + story.color[0] + "," + story.color[1] + "," + story.color[2] + "," + (isCurrentStory ? 0.4 : 0.2) + ")";
@@ -163,29 +207,39 @@ body {
 
 		//draw label 
 		
-		if(currentSelection){
+		if(currSelect && !(inZoom && zoomDirection == "out")){
 
-			var	currCenter = projection(currentSelection.center);
+			c.save(); 
+
+			c.translate(0.5,0.5);
+
+			tctx.font = (17 + ease(zoomCounter / 10) * 6)+"pt TradeGothic"; 
+
+			var	currCenter = projection(currSelect.center);
 			tctx.clearRect(0,0,width,height);
 
-			var linesSplit = currentSelection.story.displayName.split("_");
+			var linesSplit = currSelect.story.displayName.split("_");
 			var styleSplit = linesSplit[0].split("*");;
 
-			tctx.fillStyle="white";
-			tctx.fillText(styleSplit[1],300, 0);
+				tctx.fillStyle="white";
+				tctx.strokeStyle="white";
+				tctx.fillText(styleSplit[1],300, 0);
+		
 
 			tctx.fillStyle="#ffff00";
 			tctx.fillText(styleSplit[0].toUpperCase(),302-tctx.measureText(styleSplit[1]).width, 0);
 
 			if(linesSplit[1]){
 				tctx.fillStyle="white";
-				tctx.fillText(linesSplit[1],300, 25);
+				tctx.fillText(linesSplit[1],300, 25+ease(zoomCounter / 10) * 8);
 			}
 
-			currCenter[0] -= 330;
+			currCenter[0] -= 330 + ease(zoomCounter / 10) * 40;
 			currCenter[1] -= 10;
 
 			c.drawImage(tcanvas, currCenter[0], currCenter[1]);
+
+			c.restore(); 
 
 		}
 
@@ -195,6 +249,9 @@ body {
 		if (error) return console.error(error);
 
 		var countries = topojson.feature(world, world.objects.countries);
+
+		cleanCountryData(countries);
+
 		drawData.countries = countries;
 
 		drawData.countriesByName = {};
@@ -214,8 +271,6 @@ body {
 				var country = drawData.countriesByName[countryName];
 
 			if (country) {
-
-
 
 				var center = d3.geo.centroid(country);
 
@@ -239,6 +294,29 @@ body {
 		draw();
 
 	});
+
+
+	var click = function() {
+
+		if (zoomed) {
+			zoomDirection = "out";
+			selectedStory = null;
+			projection.startingRotation = currentRotation;
+			currentRotation = [currentRotation[0], 0, 0];
+			projection.scale(baseScale).rotate(currentRotation);
+			canvas.transition().ease("quad-in-out").duration(600).call(zoom.projection(projection).event);
+		} else if (currentSelection) {
+			zoomDirection = "in";
+			selectedStory = currentSelection;
+			projection.startingRotation = currentRotation;
+			currentRotation = [-currentSelection.center[0], -currentSelection.center[1], 0];
+			projection.rotate(currentRotation).scale(zoomedScale).translate([width / 2, height / 2]);
+			canvas.transition().ease("quad-in-out").duration(600).call(zoom.projection(projection).event);
+		}
+
+		zoomed = null;
+
+	};
 
 	var manualRotationActivated;
 	var animationRequest;
@@ -266,29 +344,37 @@ body {
 		}
 	};
 
-	var mouseMove = function() {
+	var mouseMove = function(isTouch) {
 
 		//Calculate mouseover 
 
 		currentSelection = null; 
 
-		_.each(storyData,function(story){
-			_.each(story.objects,function(obj){
+		if(!inZoom && !isTouch){
 
-				var currCenter = projection(obj.center)
-				
-				var xdist = Math.abs(currCenter[0] - d3.event.pageX);
-				var ydist = Math.abs(currCenter[1] - d3.event.pageY);
+			_.each(storyData,function(story){
+				_.each(story.objects,function(obj){
 
-				if (xdist <= 20 && ydist <= 20) {
-					currentSelection = {
-						center: obj.center,
-						story: story
-					};
-				}
+					var currCenter = projection(obj.center)
+					
+					var xdist = Math.abs(currCenter[0] - d3.event.pageX);
+					var ydist = Math.abs(currCenter[1] - d3.event.pageY);
 
+					if (xdist <= 20 && ydist <= 20) {
+						currentSelection = {
+							center: obj.center,
+							story: story
+						};
+					}
+
+				});
 			});
-		});
+
+		}
+
+		if(pinching){
+			return; 
+		}
 
 		doRotate = true;
 		var m1, o1;
@@ -319,15 +405,14 @@ body {
 	var redrawPathsOnRotation = function(rotation) {
 
 		currentRotation = rotation;
-		projection.rotate(currentRotation);
-
+		projection.rotate(currentRotation); 
+		
 		draw();
 	};
 
 	d3.timer(function(elapsed) {
-
 	
-		if (manualRotationActivated) {
+		if (manualRotationActivated || inZoom || zoomed || pinching) {
 			return;
 		}
 
@@ -341,8 +426,11 @@ body {
 		.on("mousemove", mouseMove)
 		.on("mouseup", mouseUp)
 		.on("touchstart", mouseDown)
-		.on("touchmove", mouseMove)
-		.on("touchend", mouseUp);
+		.on("touchmove", function(){
+			mouseMove(true);	
+		})
+		.on("touchend", mouseUp)
+		.on("click",click);
 
 	</script>
 <body>
