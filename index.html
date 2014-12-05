@@ -159,7 +159,6 @@ body {
 
 					c.strokeStyle = pointCenterColor;
 					c.fillStyle = pointCenterColor;
-					c.stroke();
 					c.fill();
 
 					c.beginPath();
@@ -167,7 +166,6 @@ body {
 
 					c.strokeStyle = radiusCenterColor;
 					c.fillStyle = radiusCenterColor;
-					c.stroke();
 					c.fill();
 
 				}
@@ -209,35 +207,23 @@ body {
 		
 		if(currSelect && !(inZoom && zoomDirection == "out")){
 
-			c.save(); 
-
-			c.translate(0.5,0.5);
-
-			tctx.font = (17 + ease(zoomCounter / 10) * 6)+"pt TradeGothic"; 
+			//c.font = (17 + ease(zoomCounter / 10) * 6)+"pt TradeGothic"; 
 
 			var	currCenter = projection(currSelect.center);
-			tctx.clearRect(0,0,width,height);
 
-			var linesSplit = currSelect.story.displayName.split("_");
-			var styleSplit = linesSplit[0].split("*");;
+			c.save(); 
 
-				tctx.fillStyle="white";
-				tctx.strokeStyle="white";
-				tctx.fillText(styleSplit[1],300, 0);
-		
+			currCenter[0] -= 30; 
+			currCenter[1] -= 15;
 
-			tctx.fillStyle="#ffff00";
-			tctx.fillText(styleSplit[0].toUpperCase(),302-tctx.measureText(styleSplit[1]).width, 0);
+			var scale = 1 + ease(zoomCounter / 10); 
+			var offset = 135; 
 
-			if(linesSplit[1]){
-				tctx.fillStyle="white";
-				tctx.fillText(linesSplit[1],300, 25+ease(zoomCounter / 10) * 8);
-			}
+			c.translate(currCenter[0]-(200+offset)*scale - (ease(zoomCounter / 10)) * 25 * scale,currCenter[1]-300*scale);
 
-			currCenter[0] -= 330 + ease(zoomCounter / 10) * 40;
-			currCenter[1] -= 10;
+			c.scale(scale,scale);
 
-			c.drawImage(tcanvas, currCenter[0], currCenter[1]);
+			currSelect.story.displayPath && currSelect.story.displayPath(c); 
 
 			c.restore(); 
 
