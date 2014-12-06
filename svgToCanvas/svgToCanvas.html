@@ -1,0 +1,99 @@
+<body>
+<input id="fileItem" type="file">
+<canvas style="display:none;"  width = '1024' height = '512' id="temp"  ></canvas>     
+<script type="text/javascript" src="canvg.js"></script>
+<script type="text/javascript">
+
+    var readFile = function(evt) {
+
+        var f = evt.target.files[0];
+        var canvasString = ""; 
+
+        if (f) {
+            var r = new FileReader();
+            r.onload = function(e) {
+                var myString = e.target.result.replace(/\r/g,"").replace(/\n/g,"").replace(/\t/g,"");
+                var myRegexp = /<path d="[^"]+"\/>/g;
+                var match = myRegexp.exec(myString);        
+                while (match != null) {
+                    canvasString+=convert(match[0])+"\n";
+                    match = myRegexp.exec(myString);
+                }
+                console.log(canvasString);
+            }
+            r.readAsText(f);
+        } else {
+            alert("Failed to load file");
+        }
+    };
+
+    document.getElementById('fileItem').addEventListener('change', readFile, false);
+
+    var cvd = function() {
+        var output = '';
+        var that = {};
+        var oldFuncs;;
+
+        var caller = function(prop) {
+            return function() {
+                var args = '',
+                    str = '';
+                for (var i = 0; i < arguments.length; i++) {
+                    args += arguments[i];
+                    if (i !== arguments.length - 1) {
+                        args += ',';
+                    }
+                }
+                //filter out non-path specifying  commands
+                if (!/save|beginPath|closePath|fill|stroke|restore/g.test(prop)) {
+                    str = 'ctx.' + prop + '(' + args + ');';
+                    output += str + '\n';
+                }
+            };
+        };
+
+        that.overrideFuncs = function() {
+            oldFuncs = {};
+            for (var prop in CanvasRenderingContext2D.prototype) {
+                if (CanvasRenderingContext2D.prototype.hasOwnProperty(prop)) {
+                    try {
+                        var oldFunc = CanvasRenderingContext2D.prototype[prop];
+                        if ((typeof oldFunc == 'function') && (prop !== 'createLinearGradient') && (prop !== 'createRadialGradient')) {
+                            oldFuncs[prop] = oldFunc;
+                            CanvasRenderingContext2D.prototype[prop] = caller(prop);
+                        }
+                    } catch (e) {}
+                }
+            }
+        }
+
+        that.restoreFuncs = function() {
+            for (var key in oldFuncs) {
+                if (oldFuncs.hasOwnProperty(key)) {
+                    CanvasRenderingContext2D.prototype[key] = oldFuncs[key];
+                }
+            }
+        }
+
+        that.logCommand = function(command) {
+            output += command + ';\n';
+        }
+        that.getOutput = function() {
+            return output;
+        }
+
+        that.clearOutput = function() {
+            output = '';
+        };
+        return that;
+    }();
+
+    cvd.overrideFuncs();
+
+    var convert = function(str) {
+        cvd.clearOutput();
+        canvg('temp', str);
+        return  cvd.getOutput();
+    }
+</script>
+</body>

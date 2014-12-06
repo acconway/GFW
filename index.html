@@ -207,19 +207,19 @@ body {
 		
 		if(currSelect && !(inZoom && zoomDirection == "out")){
 
-			//c.font = (17 + ease(zoomCounter / 10) * 6)+"pt TradeGothic"; 
+			var easeValue = ease(zoomCounter / 10); 
 
 			var	currCenter = projection(currSelect.center);
 
 			c.save(); 
 
 			currCenter[0] -= 30; 
-			currCenter[1] -= 15;
+			currCenter[1] -= 12;
 
-			var scale = 1 + ease(zoomCounter / 10); 
-			var offset = 135; 
+			var scale = 0.8 + easeValue*0.7; 
+			var offset = currSelect.story.offset; 	
 
-			c.translate(currCenter[0]-(200+offset)*scale - (ease(zoomCounter / 10)) * 25 * scale,currCenter[1]-300*scale);
+			c.translate(currCenter[0]-offset*scale-easeValue*30*scale,currCenter[1]-easeValue*5);
 
 			c.scale(scale,scale);
 
