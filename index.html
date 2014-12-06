@@ -281,6 +281,13 @@ body {
 
 	});
 
+	var pointIsShown = function(point){
+		var geoangle = d3.geo.distance(
+			point, [-projection.rotate()[0],
+				projection.rotate()[1]
+			]);
+		return geoangle < 1.57079632679490; 
+     };
 
 	var click = function() {
 
@@ -346,7 +353,7 @@ body {
 					var xdist = Math.abs(currCenter[0] - d3.event.pageX);
 					var ydist = Math.abs(currCenter[1] - d3.event.pageY);
 
-					if (xdist <= 20 && ydist <= 20) {
+					if (xdist <= 20 && ydist <= 20 && pointIsShown(obj.center)) {
 						currentSelection = {
 							center: obj.center,
 							story: story
