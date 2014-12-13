@@ -1,10 +1,6 @@
 <!DOCTYPE html>
 <meta charset="utf-8">
 <style>
-@font-face {
-    font-family: 'TradeGothic';
-    src: url('2CC1A7_1_0.ttf');
-}
 body {
 	background-color: #222222;
 } 
@@ -25,8 +21,8 @@ cursor: pointer;
 	<script src= "lib/d3.v3.min.js"></script> 
 	<script src = "lib/d3.geo.zoom.js"></script> 
 	<script src = "lib/topojson.v1.min.js"></script> 
-	<script src = "lib/underscore.js"></script> 
-	<script src = "lib/hammer.js"></script> 
+	<script src = "lib/underscore-min.js"></script> 
+	<script src = "lib/hammer.min.js"></script> 
 	<script src = "data.js"></script> 
 	<script>
 
@@ -34,10 +30,9 @@ cursor: pointer;
 		height = window.innerHeight;
 
 	var baseScale = 300;
-	var currScale = 1; 
 	var zoomedScale = 800;
 
-	var pinching = false; 
+	//Add canvas to body. Full width and height, absolute positioned at 0,0
 
 	var canvas = d3.select("body").append("canvas").attr("width", width).attr("height", height).style({
 		 position:"absolute",
@@ -45,22 +40,7 @@ cursor: pointer;
     	top:"0px"
 	}); 
 
-	var hammertime = new Hammer(d3.select("body").node(), {});
-
-	hammertime.get('pinch').set({ enable: true });
-	hammertime.on('pinch', function(e) {
-		currScale = e.scale;
-		projection.scale(currScale*baseScale);
-		draw(); 
-	});
-	hammertime.on("pinchstart",function(e){
-		pinching = true; 
-	});
-	hammertime.on('pinchend',function(e){
-		baseScale = currScale*baseScale;
-		currScale = 1; 
-		pinching = false; 
-	});
+	var hammer = new Hammer(d3.select("body").node(), {});
 
 	var tcanvas = document.createElement('canvas');
 	var tctx = tcanvas.getContext('2d');
@@ -72,6 +52,8 @@ cursor: pointer;
 	tctx.textBaseline = 'top';
 
 	var c = canvas.node().getContext("2d");
+
+	//Projection centers globe at width/2 height/2
 
 	var projection = d3.geo.orthographic().scale(baseScale).translate([width / 2, height / 2]).clipAngle(90).precision(0);
 
@@ -315,24 +297,58 @@ cursor: pointer;
 
  	};
 
+ 	var touch = function(e){
+
+ 			var xdist = Math.abs(width / 2 - e.center.x);
+			var ydist = Math.abs(height / 2 - e.center.y);
+
+			var distFromCenter = Math.sqrt(xdist * xdist + ydist * ydist);
+
+			if (distFromCenter < baseScale) {
+				//Tap inside globe 
+				alert("Tap On Globe");
+			}
+
+ 	};
+
 	var click = function() {
 
 		if (zoomed) {
+
 			setCursor("grab");
 			zoomDirection = "out";
 			selectedStory = null;
 			projection.startingRotation = currentRotation;
 			currentRotation = [currentRotation[0], 0, 0];
 			projection.scale(baseScale).rotate(currentRotation);
-			canvas.transition().ease("quad-in-out").duration(600).call(zoom.projection(projection).event);
+
+			canvas.transition().ease("quad-in-out").duration(600).call(zoom.projection(projection).event).each("start", function(){
+				//Start zoom out 
+				console.log("Starting zoom out"); 
+			}).each("end", function(){
+				//End zoom out 
+				console.log("Ended zoom out"); 
+			});
+
 		} else if (currentSelection) {
+
 			setCursor("pointer");
 			zoomDirection = "in";
 			selectedStory = currentSelection;
 			projection.startingRotation = currentRotation;
 			currentRotation = [-currentSelection.center[0], -currentSelection.center[1], 0];
 			projection.rotate(currentRotation).scale(zoomedScale).translate([width / 2, height / 2]);
-			canvas.transition().ease("quad-in-out").duration(600).call(zoom.projection(projection).event);
+
+			canvas.transition().ease("quad-in-out").duration(600).call(zoom.projection(projection).event).each("start", function(){
+				//Start zoom in 
+		 		//Access name of selected story as 
+				//currentSelection.story.name
+				console.log("Starting zoom in to story "+currentSelection.story.name); 
+			}).each("end", function(){
+				//End zoom in 
+				console.log("Finished zoom in");
+			});
+
 		}
 
 		zoomed = null;
@@ -401,10 +417,6 @@ cursor: pointer;
 
 		}
 
-		if(pinching){
-			return; 
-		}
-
 		doRotate = true;
 		var m1, o1;
 		if (m0) {
@@ -441,7 +453,7 @@ cursor: pointer;
 
 	d3.timer(function(elapsed) {
 	
-		if (manualRotationActivated || inZoom || zoomed || pinching) {
+		if (manualRotationActivated || inZoom || zoomed) {
 			return;
 		}
 
@@ -458,8 +470,17 @@ cursor: pointer;
 		.on("touchmove", function(){
 			mouseMove(true);	
 		})
-		.on("touchend", mouseUp)
-		.on("click",click);
+		.on("touchend", mouseUp); 
+
+	hammer.on('tap', function(e) {
+
+		if (e.pointerType == "touch") {
+			touch(e);
+		} else {
+			click(e);
+		}
+
+	});
 
 	setCursor("grab");
 
