@@ -15,7 +15,7 @@ body {
 .pointer {
     cursor: pointer;
 }
-.arrow {
+/*.arrow {
     position: absolute;
     background-color: red;
     width: 100px;
@@ -27,7 +27,7 @@ body {
 }
 .arrow.right {
     right: 100px;
-}
+}*/
 </style>
 
 <body>
@@ -214,8 +214,6 @@ body {
 
         if (currSelect && !(inZoom && zoomDirection == "out")) {
 
-            console.log(currSelect);    
-
             var easeValue = ease(zoomCounter / 10);
 
             var currCenter = projection(currSelect.center);
@@ -339,10 +337,10 @@ body {
 
             canvas.transition().ease("quad-in-out").duration(600).call(zoom.projection(projection).event).each("start", function() {
                 //Start zoom out 
-                console.log("Starting zoom out");
+                // console.log("Starting zoom out");
             }).each("end", function() {
                 //End zoom out 
-                console.log("Ended zoom out");
+                // console.log("Ended zoom out");
             });
 
         } else if (currentSelection) {
@@ -361,7 +359,7 @@ body {
                 //console.log("Starting zoom in to story "+selectedStory.story.name); 
             }).each("end", function() {
                 //End zoom in 
-                console.log("Finished zoom in");
+                // console.log("Finished zoom in");
             });
 
         }
@@ -503,8 +501,8 @@ body {
 
     setCursor("grab");
     </script>
-    <div id="rightarrow" class="arrow right"></div>
-    <div id="leftarrow" class="arrow left"></div>
+   <!--  <div id="rightarrow" class="arrow right"></div>
+    <div id="leftarrow" class="arrow left"></div> -->
     <script>
     var cycleStories = [{
         story: "Sparking Change",
@@ -557,36 +555,36 @@ body {
     	Pass in an object with the name of the story and country you want to select (ie a member of cyclestories above).
     */
 
-    var selectNextStory = function(nextStory) {
+    // var selectNextStory = function(nextStory) {
 
-        currentSelection = getSelectionObjectWithCycleStory(nextStory);
-        selectedStory = currentSelection;
+    //     currentSelection = getSelectionObjectWithCycleStory(nextStory);
+    //     selectedStory = currentSelection;
         
-        projection.startingRotation = currentRotation;
-        currentRotation = [-selectedStory.center[0], -selectedStory.center[1], 0];
-        projection.rotate(currentRotation);
+    //     projection.startingRotation = currentRotation;
+    //     currentRotation = [-selectedStory.center[0], -selectedStory.center[1], 0];
+    //     projection.rotate(currentRotation);
 
-        canvas.transition().ease("quad-in-out").duration(600).call(zoom.projection(projection).event);
+    //     canvas.transition().ease("quad-in-out").duration(600).call(zoom.projection(projection).event);
 
-    };
+    // };
 
-    $("#rightarrow").on("click", function(e) {
-        if (zoomed) {
-            var nextCycleStory = cycleStories[(getSelectedStoryIndex() + 1) % cycleStories.length];
-            selectNextStory(nextCycleStory);
-        }else{
-            currentSelection = getSelectionObjectWithCycleStory(cycleStories[0]);
-            click(); 
-        }
-    });
+    // $("#rightarrow").on("click", function(e) {
+    //     if (zoomed) {
+    //         var nextCycleStory = cycleStories[(getSelectedStoryIndex() + 1) % cycleStories.length];
+    //         selectNextStory(nextCycleStory);
+    //     }else{
+    //         currentSelection = getSelectionObjectWithCycleStory(cycleStories[0]);
+    //         click(); 
+    //     }
+    // });
 
 
-     $("#leftarrow").on("click", function(e) {
-        if (zoomed) {
-            var nextCycleStory = cycleStories[(getSelectedStoryIndex() - 1) == -1 ? cycleStories.length-1 : (getSelectedStoryIndex() - 1)];
-            selectNextStory(nextCycleStory);
-        }
-    });
+    //  $("#leftarrow").on("click", function(e) {
+    //     if (zoomed) {
+    //         var nextCycleStory = cycleStories[(getSelectedStoryIndex() - 1) == -1 ? cycleStories.length-1 : (getSelectedStoryIndex() - 1)];
+    //         selectNextStory(nextCycleStory);
+    //     }
+    // });
 
     </script>
 
