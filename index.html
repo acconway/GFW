@@ -2,487 +2,592 @@
 <meta charset="utf-8">
 <style>
 body {
-	background-color: #222222;
-} 
-.grab {
-cursor: grab;
-cursor: -webkit-grab;
+    background-color: #222222;
 }
-
+.grab {
+    cursor: grab;
+    cursor: -webkit-grab;
+}
 .grabbing {
-cursor: grabbing;
-cursor: -webkit-grabbing;
+    cursor: grabbing;
+    cursor: -webkit-grabbing;
 }
 .pointer {
-cursor: pointer; 
+    cursor: pointer;
+}
+.arrow {
+    position: absolute;
+    background-color: red;
+    width: 100px;
+    height: 100px;
+    top: 100px;
+}
+.arrow.left {
+    left: 100px;
+}
+.arrow.right {
+    right: 100px;
 }
 </style>
+
 <body>
-	<script src= "lib/d3.v3.min.js"></script> 
-	<script src = "lib/d3.geo.zoom.js"></script> 
-	<script src = "lib/topojson.v1.min.js"></script> 
-	<script src = "lib/underscore-min.js"></script> 
-	<script src = "lib/hammer.min.js"></script> 
-	<script src = "data.js"></script> 
-	<script>
+    <script src="lib/d3.v3.min.js"></script>
+    <script src="lib/d3.geo.zoom.js"></script>
+    <script src="lib/topojson.v1.min.js"></script>
+    <script src="lib/underscore-min.js"></script>
+    <script src="lib/hammer.min.js"></script>
+    <script src="data.js"></script>
+    <script src="lib/jquery-2.1.3.min.js"></script>
+    <script>
+    var width = window.innerWidth,
+        height = window.innerHeight;
 
-	var width = window.innerWidth,
-		height = window.innerHeight;
+    var baseScale = 300;
+    var zoomedScale = 800;
 
-	var baseScale = 300;
-	var zoomedScale = 800;
+    //Add canvas to body. Full width and height, absolute positioned at 0,0
 
-	//Add canvas to body. Full width and height, absolute positioned at 0,0
+    var canvas = d3.select("body").append("canvas").attr("width", width).attr("height", height).style({
+        position: "absolute",
+        left: "0px",
+        top: "0px"
+    });
 
-	var canvas = d3.select("body").append("canvas").attr("width", width).attr("height", height).style({
-		 position:"absolute",
-    	left:"0px",
-    	top:"0px"
-	}); 
+    var hammer = new Hammer(d3.select("body").node(), {});
 
-	var hammer = new Hammer(d3.select("body").node(), {});
+    var tcanvas = document.createElement('canvas');
+    var tctx = tcanvas.getContext('2d');
 
-	var tcanvas = document.createElement('canvas');
-	var tctx = tcanvas.getContext('2d');
+    tcanvas.width = width;
+    tcanvas.height = height;
 
-	tcanvas.width = width;
-	tcanvas.height = height;
+    tctx.textAlign = "end";
+    tctx.textBaseline = 'top';
 
-	tctx.textAlign = "end";
-	tctx.textBaseline = 'top';
+    var c = canvas.node().getContext("2d");
 
-	var c = canvas.node().getContext("2d");
+    //Projection centers globe at width/2 height/2
 
-	//Projection centers globe at width/2 height/2
+    var projection = d3.geo.orthographic().scale(baseScale).translate([width / 2, height / 2]).clipAngle(90).precision(0);
 
-	var projection = d3.geo.orthographic().scale(baseScale).translate([width / 2, height / 2]).clipAngle(90).precision(0);
+    var path = d3.geo.path().projection(projection).context(c);
+    var circle = d3.geo.circle();
 
-	var path = d3.geo.path().projection(projection).context(c);
-	var circle = d3.geo.circle();
+    var currentSelection;
 
-	var currentSelection;
+    var drawData = {};
 
-	var drawData = {};
+    var zoomed = false;
+    var inZoom = false;
 
-	var zoomed = false;
-	var inZoom = false; 
+    var zoomDirection;
+    var selectedStory;
 
-	var zoomDirection; 
-	var selectedStory; 
+    var zoomCounter = 0;
+    var ease = d3.ease("quad-in-out");
 
-	var zoomCounter = 0;
-	var ease = d3.ease("quad-in-out");
+    var zoom = d3.geo.zoom()
+        .projection(projection).on("zoom", function() {
+            inZoom = true;
+            draw && draw();
+            zoomCounter++;
+        }).on("zoomend", function() {
+            inZoom = false;
+            zoomCounter = 0;
+            if (zoomDirection == "in") {
+                zoomed = true;
+            } else {
+                zoomed = false;
+            }
+        });
 
-	var zoom = d3.geo.zoom()
-		.projection(projection).on("zoom", function() {
-			inZoom = true;
-			draw && draw();
-			zoomCounter++;
-		}).on("zoomend", function() {
-			inZoom = false;
-			zoomCounter = 0;
-			if (zoomDirection == "in") {
-				zoomed = true;
-			} else {
-				zoomed = false;
-			}
-		});
+    canvas.call(zoom.event);
 
-	canvas.call(zoom.event);
+    var draw = function() {
 
-	var draw = function() {
+        //Don't do anything till our data is loaded 
+        if (_.isEmpty(drawData)) {
+            return;
+        }
 
-		//Don't do anything till our data is loaded 
-		if (_.isEmpty(drawData)) {
-			return;
-		}
+        var currSelect = currentSelection || selectedStory;
 
-		var currSelect = currentSelection || selectedStory; 
+        c.clearRect(0, 0, width, height);
 
-		c.clearRect(0, 0, width, height);
+        //draw background sphere
 
-		//draw background sphere
+        c.fillStyle = "#242e3b";
+        c.beginPath();
+        path({
+            type: "Sphere"
+        });
+        c.fill();
 
-		c.fillStyle = "#242e3b";
-		c.beginPath();
-		path({
-			type: "Sphere"
-		});
-		c.fill();
+        //fill countries
 
-		//fill countries
+        _.each(drawData.countries.features, function(country, index) {
+            var color = continentColors[country.properties.continent][countryColoring[index]];
+            c.fillStyle = color;
+            c.beginPath();
+            path(country);
+            c.fill();
+        });
 
-		_.each(drawData.countries.features, function(country, index) {
-			var color = continentColors[country.properties.continent][countryColoring[index]];
-			c.fillStyle = color;
-			c.beginPath();
-			path(country);
-			c.fill();
-		});
+        //draw borders 
 
-		//draw borders 
+        c.strokeStyle = "#163A24";
+        c.lineWidth = 0.6;
+        c.beginPath();
+        path(drawData.borders);
+        c.stroke();
 
-		c.strokeStyle = "#163A24";
-		c.lineWidth = 0.6;
-		c.beginPath();
-		path(drawData.borders);
-		c.stroke();
+        //draw points
 
-		//draw points
+        _.each(storyData, function(story) {
 
-		_.each(storyData, function(story) {
+            if (selectedStory && story != selectedStory.story) {
+                return;
+            }
 
-			if(selectedStory && story != selectedStory.story){
-				return; 
-			}
+            var isCurrentStory = currSelect && currSelect.story == story;
 
-			var isCurrentStory = currSelect && currSelect.story == story;
+            var pointCenterColor = "rgba(" + story.color[0] + "," + story.color[1] + "," + story.color[2] + "," + (isCurrentStory ? 1 : 0.8) + ")";
+            var radiusCenterColor = "rgba(" + story.color[0] + "," + story.color[1] + "," + story.color[2] + "," + (isCurrentStory ? 0.4 : 0.2) + ")";
+            var connectionColor = "rgba(" + story.color[0] + "," + story.color[1] + "," + story.color[2] + "," + (isCurrentStory ? 0.8 : 0.5) + ")";
 
-			var pointCenterColor = "rgba(" + story.color[0] + "," + story.color[1] + "," + story.color[2] + "," + (isCurrentStory ? 1 : 0.8) + ")";
-			var radiusCenterColor = "rgba(" + story.color[0] + "," + story.color[1] + "," + story.color[2] + "," + (isCurrentStory ? 0.4 : 0.2) + ")";
-			var connectionColor = "rgba(" + story.color[0] + "," + story.color[1] + "," + story.color[2] + "," + (isCurrentStory ? 0.8 : 0.5) + ")";
+            _.each(story.countries, function(country) {
 
-			_.each(story.countries, function(country) {
+                var countryData = story.objects[country];
 
-				var countryData = story.objects[country];
+                if (countryData) {
 
-				if (countryData) {
+                    c.beginPath();
+                    path(countryData.pointCircle);
 
-					c.beginPath();
-					path(countryData.pointCircle);
+                    c.strokeStyle = pointCenterColor;
+                    c.fillStyle = pointCenterColor;
+                    c.fill();
 
-					c.strokeStyle = pointCenterColor;
-					c.fillStyle = pointCenterColor;
-					c.fill();
+                    c.beginPath();
+                    path(countryData.radiusCircle);
 
-					c.beginPath();
-					path(countryData.radiusCircle);
+                    c.strokeStyle = radiusCenterColor;
+                    c.fillStyle = radiusCenterColor;
+                    c.fill();
 
-					c.strokeStyle = radiusCenterColor;
-					c.fillStyle = radiusCenterColor;
-					c.fill();
+                }
+            });
 
-				}
-			});
+            var connectors = {
+                type: "MultiLineString",
+                coordinates: []
+            };
 
-			var connectors = {
-				type: "MultiLineString",
-				coordinates: []
-			};
+            c.beginPath();
+            c.lineWidth = 0.2;
+            c.strokeStyle = connectionColor;
 
-			c.beginPath();
-			c.lineWidth = 0.2;
-			c.strokeStyle = connectionColor;
+            var addConnection = function(endpoint0, endpoint1) {
+                connectors.coordinates.push([endpoint0, endpoint1]);
+            };
 
-			var addConnection = function(endpoint0, endpoint1) {
-				connectors.coordinates.push([endpoint0, endpoint1]);
-			};
+            if (story.connectors) {
 
-			if (story.connectors) {
+                _.each(story.connectors, function(connection) {
+                    var endpoints = connection.split("_");
+                    addConnection(story.objects[endpoints[0]].center, story.objects[endpoints[1]].center);
+                });
 
-				_.each(story.connectors, function(connection) {
-					var endpoints = connection.split("_");
-					addConnection(story.objects[endpoints[0]].center, story.objects[endpoints[1]].center);
-				});
+            } else {
+                _.each(story.countries, function(country, index) {
+                    for (var i = index + 1; i < story.countries.length; i++) {
+                        addConnection(story.objects[country].center, story.objects[story.countries[i]].center);
+                    }
+                });
+            }
 
-			} else {
-				_.each(story.countries, function(country, index) {
-					for (var i = index + 1; i < story.countries.length; i++) {
-						addConnection(story.objects[country].center, story.objects[story.countries[i]].center);
-					}
-				});
-			}
+            path(connectors);
+            c.stroke();
+        });
 
-			path(connectors);
-			c.stroke();
-		});
+        //draw label 
 
-		//draw label 
-		
-		if(currSelect && !(inZoom && zoomDirection == "out")){
+        if (currSelect && !(inZoom && zoomDirection == "out")) {
 
-			var easeValue = ease(zoomCounter / 10); 
+            console.log(currSelect);    
 
-			var	currCenter = projection(currSelect.center);
+            var easeValue = ease(zoomCounter / 10);
 
-			c.save(); 
+            var currCenter = projection(currSelect.center);
 
-			currCenter[0] -= 30; 
-			currCenter[1] -= 12;
+            c.save();
 
-			var scale = 0.8 + easeValue*0.7; 
-			var offset = currSelect.story.offset; 	
+            currCenter[0] -= 30;
+            currCenter[1] -= 12;
 
-			c.translate(currCenter[0]-offset*scale-easeValue*30*scale,currCenter[1]-easeValue*5);
+            var scale = 0.8 + easeValue * 0.7;
+            var offset = currSelect.story.offset;
 
-			c.scale(scale,scale);
+            c.translate(currCenter[0] - offset * scale - easeValue * 30 * scale, currCenter[1] - easeValue * 5);
 
-			currSelect.story.displayPath && currSelect.story.displayPath(c); 
+            c.scale(scale, scale);
 
-			c.restore(); 
+            currSelect.story.displayPath && currSelect.story.displayPath(c);
 
-		}
+            c.restore();
 
-	};
+        }
 
-	d3.json("world.json", function(error, world) {
-		if (error) return console.error(error);
+    };
 
-		var countries = topojson.feature(world, world.objects.countries);
+    d3.json("world.json", function(error, world) {
+        if (error) return console.error(error);
 
-		cleanCountryData(countries);
+        var countries = topojson.feature(world, world.objects.countries);
 
-		drawData.countries = countries;
+        cleanCountryData(countries);
 
-		drawData.countriesByName = {};
+        drawData.countries = countries;
 
-		_.each(countries.features,function(feature){
+        drawData.countriesByName = {};
 
-			drawData.countriesByName[feature.properties["name_long"]] = feature;
+        _.each(countries.features, function(feature) {
 
-		}); 
+            drawData.countriesByName[feature.properties["name_long"]] = feature;
 
-		_.each(storyData,function(story){
+        });
 
-			story.objects = {};
+        _.each(storyData, function(story) {
 
-			_.each(story.countries,function(countryName){
+            story.objects = {};
 
-				var country = drawData.countriesByName[countryName];
+            _.each(story.countries, function(countryName) {
 
-			if (country) {
+                var country = drawData.countriesByName[countryName];
 
-				var center = d3.geo.centroid(country);
+                if (country) {
 
-				var hasTuning = story.centerTuning && story.centerTuning[countryName];
+                    var center = d3.geo.centroid(country);
 
-				center[0] += hasTuning ? story.centerTuning[countryName].x : 0;
-				center[1] += hasTuning ? story.centerTuning[countryName].y : 0;
+                    var hasTuning = story.centerTuning && story.centerTuning[countryName];
 
-				story.objects[countryName] = {
-					center: center,
-					pointCircle: circle.origin(center).angle(1)(),
-					radiusCircle: circle.origin(center).angle(3.5)()
-				}
+                    center[0] += hasTuning ? story.centerTuning[countryName].x : 0;
+                    center[1] += hasTuning ? story.centerTuning[countryName].y : 0;
 
-			}
+                    story.objects[countryName] = {
+                        center: center,
+                        pointCircle: circle.origin(center).angle(1)(),
+                        radiusCircle: circle.origin(center).angle(3.5)()
+                    }
 
-			});
-		});
+                }
 
-		drawData.borders = topojson.mesh(world, world.objects.countries);
-		draw();
+            });
+        });
 
-	});
+        drawData.borders = topojson.mesh(world, world.objects.countries);
+        draw();
 
-	var pointIsShown = function(point){
-		var geoangle = d3.geo.distance(
-			point, [-projection.rotate()[0],
-				projection.rotate()[1]
-			]);
-		return geoangle < 1.57079632679490; 
-     };
+    });
 
- 	var setCursor = function(type) {
+    var pointIsShown = function(point) {
+        var geoangle = d3.geo.distance(
+            point, [-projection.rotate()[0],
+                projection.rotate()[1]
+            ]);
+        return geoangle < 1.57079632679490;
+    };
 
- 		var classes = {
- 			"grab": false,
- 			"grabbing": false,
- 			"pointer": false
- 		};
+    var setCursor = function(type) {
 
- 		classes[type] = true;
+        var classes = {
+            "grab": false,
+            "grabbing": false,
+            "pointer": false
+        };
 
- 		canvas.classed(classes);
+        classes[type] = true;
 
- 	};
+        canvas.classed(classes);
 
- 	var touch = function(e){
+    };
 
- 			var xdist = Math.abs(width / 2 - e.center.x);
-			var ydist = Math.abs(height / 2 - e.center.y);
+    var touch = function(e) {
 
-			var distFromCenter = Math.sqrt(xdist * xdist + ydist * ydist);
+        var xdist = Math.abs(width / 2 - e.center.x);
+        var ydist = Math.abs(height / 2 - e.center.y);
 
-			if (distFromCenter < baseScale) {
-				//Tap inside globe 
-				alert("Tap On Globe");
-			}
+        var distFromCenter = Math.sqrt(xdist * xdist + ydist * ydist);
 
- 	};
+        if (distFromCenter < baseScale) {
+            //Tap inside globe 
+            alert("Tap On Globe");
+        }
 
-	var click = function() {
+    };
 
-		if (zoomed) {
+    var click = function(e) {
 
-			setCursor("grab");
-			zoomDirection = "out";
-			selectedStory = null;
-			projection.startingRotation = currentRotation;
-			currentRotation = [currentRotation[0], 0, 0];
-			projection.scale(baseScale).rotate(currentRotation);
+        if (zoomed) {
 
-			canvas.transition().ease("quad-in-out").duration(600).call(zoom.projection(projection).event).each("start", function(){
-				//Start zoom out 
-				console.log("Starting zoom out"); 
-			}).each("end", function(){
-				//End zoom out 
-				console.log("Ended zoom out"); 
-			});
+            setCursor("grab");
+            zoomDirection = "out";
+            selectedStory = null;
+            projection.startingRotation = currentRotation;
+            currentRotation = [currentRotation[0], 0, 0];
+            projection.scale(baseScale).rotate(currentRotation);
 
-		} else if (currentSelection) {
+            canvas.transition().ease("quad-in-out").duration(600).call(zoom.projection(projection).event).each("start", function() {
+                //Start zoom out 
+                console.log("Starting zoom out");
+            }).each("end", function() {
+                //End zoom out 
+                console.log("Ended zoom out");
+            });
 
-			setCursor("pointer");
-			zoomDirection = "in";
-			selectedStory = currentSelection;
-			projection.startingRotation = currentRotation;
-			currentRotation = [-currentSelection.center[0], -currentSelection.center[1], 0];
-			projection.rotate(currentRotation).scale(zoomedScale).translate([width / 2, height / 2]);
+        } else if (currentSelection) {
 
-			canvas.transition().ease("quad-in-out").duration(600).call(zoom.projection(projection).event).each("start", function(){
-				//Start zoom in 
-		 		//Access name of selected story as 
-				//currentSelection.story.name
-				console.log("Starting zoom in to story "+currentSelection.story.name); 
-			}).each("end", function(){
-				//End zoom in 
-				console.log("Finished zoom in");
-			});
+            setCursor("pointer");
+            zoomDirection = "in";
+            selectedStory = currentSelection;
+            projection.startingRotation = currentRotation;
+            currentRotation = [-currentSelection.center[0], -currentSelection.center[1], 0];
+            projection.rotate(currentRotation).scale(zoomedScale).translate([width / 2, height / 2]);
 
-		}
+            canvas.transition().ease("quad-in-out").duration(600).call(zoom.projection(projection).event).each("start", function() {
+                //Start zoom in 
+                //Access name of selected story as 
+                //currentSelection.story.name
+                //console.log("Starting zoom in to story "+selectedStory.story.name); 
+            }).each("end", function() {
+                //End zoom in 
+                console.log("Finished zoom in");
+            });
 
-		zoomed = null;
+        }
 
-	};
+        zoomed = null;
 
-	var manualRotationActivated;
-	var animationRequest;
-	var m0;
-	var o0;
-	var doRotate;
+    };
 
-	var currentRotation = [0, 0, 0];
-	var manualRotationActivated = false;
+    var manualRotationActivated;
+    var animationRequest;
+    var m0;
+    var o0;
+    var doRotate;
 
-	var mouseDown = function() {
-		if (zoomed == true) {
-			return;
-		}
-		setCursor("grabbing");
-		m0 = [d3.event.pageX, d3.event.pageY];
-		o0 = projection.rotate();
-		manualRotationActivated = true;
-		doRotate = false;
-		animationRequest = requestAnimationFrame(rotate);
-		d3.event.preventDefault();
-	};
+    var currentRotation = [0, 0, 0];
+    var manualRotationActivated = false;
 
-	var mouseUp = function() {
-		setCursor("grab");
-		doRotate = false;
-		manualRotationActivated = false;
-		if (m0) {
-			m0 = null;
-		}
-	};
+    var mouseDown = function() {
+        if (inZoom == true || zoomed == true) {
+            return;
+        }
+        setCursor("grabbing");
+        m0 = [d3.event.pageX, d3.event.pageY];
+        o0 = projection.rotate();
+        manualRotationActivated = true;
+        doRotate = false;
+        animationRequest = requestAnimationFrame(rotate);
+        d3.event.preventDefault();
+    };
 
-	var mouseMove = function(isTouch) {
+    var mouseUp = function() {
+        setCursor("grab");
+        doRotate = false;
+        manualRotationActivated = false;
+        if (m0) {
+            m0 = null;
+        }
+    };
 
-		setCursor(zoomed?"pointer":"grab");
+    var mouseMove = function(isTouch) {
 
-		//Calculate mouseover 
+        setCursor(zoomed ? "pointer" : "grab");
 
-		currentSelection = null; 
+        //Calculate mouseover 
 
-		if(!inZoom && !isTouch){
+        currentSelection = null;
 
-			_.each(storyData,function(story){
-				_.each(story.objects,function(obj){
+        if (!inZoom && !isTouch) {
 
-					var currCenter = projection(obj.center)
-					
-					var xdist = Math.abs(currCenter[0] - d3.event.pageX);
-					var ydist = Math.abs(currCenter[1] - d3.event.pageY);
+            _.each(storyData, function(story) {
+                _.each(story.objects, function(obj) {
 
-					if (xdist <= 20 && ydist <= 20 && pointIsShown(obj.center)) {
-						setCursor("pointer");
-						currentSelection = {
-							center: obj.center,
-							story: story
-						};
-					}
+                    var currCenter = projection(obj.center)
 
-				});
-			});
+                    var xdist = Math.abs(currCenter[0] - d3.event.pageX);
+                    var ydist = Math.abs(currCenter[1] - d3.event.pageY);
 
-		}
+                    if (xdist <= 20 && ydist <= 20 && pointIsShown(obj.center)) {
+                        setCursor("pointer");
+                        currentSelection = {
+                            center: obj.center,
+                            story: story
+                        };
+                    }
 
-		doRotate = true;
-		var m1, o1;
-		if (m0) {
-			m1 = [d3.event.pageX, d3.event.pageY];
-			o1 = [o0[0] + (m1[0] - m0[0]) / 4, o0[1] + (m0[1] - m1[1]) / 4];
-			o1[1] = Math.min(Math.max(o1[1], -20), 20);
-			currentRotation = [o1[0], o1[1], 0];
+                });
+            });
 
-		}
-	};
+        }
 
-	var rotate = function() {
-		if (manualRotationActivated) {
-			redrawPathsOnManualRotation(currentRotation);
-			animationRequest = requestAnimationFrame(rotate);
-		}
-	};
+        doRotate = true;
+        var m1, o1;
+        if (m0) {
+            m1 = [d3.event.pageX, d3.event.pageY];
+            o1 = [o0[0] + (m1[0] - m0[0]) / 4, o0[1] + (m0[1] - m1[1]) / 4];
+            o1[1] = Math.min(Math.max(o1[1], -20), 20);
+            currentRotation = [o1[0], o1[1], 0];
 
+        }
+    };
 
-	var redrawPathsOnManualRotation = function(rotation) {
-		if (!doRotate) {
-			return;
-		}
-		redrawPathsOnRotation(rotation);
-	};
+    var rotate = function() {
+        if (manualRotationActivated) {
+            redrawPathsOnManualRotation(currentRotation);
+            animationRequest = requestAnimationFrame(rotate);
+        }
+    };
 
-	var redrawPathsOnRotation = function(rotation) {
 
-		currentRotation = rotation;
-		projection.rotate(currentRotation); 
-		
-		draw();
-	};
+    var redrawPathsOnManualRotation = function(rotation) {
+        if (!doRotate) {
+            return;
+        }
+        redrawPathsOnRotation(rotation);
+    };
 
-	d3.timer(function(elapsed) {
-	
-		if (manualRotationActivated || inZoom || zoomed) {
-			return;
-		}
+    var redrawPathsOnRotation = function(rotation) {
 
-		currentRotation[0] += 0.15;
-		redrawPathsOnRotation(currentRotation);
+        currentRotation = rotation;
+        projection.rotate(currentRotation);
 
-	});
+        draw();
+    };
 
-	d3.select("body")
-		.on("mousedown", mouseDown)
-		.on("mousemove", mouseMove)
-		.on("mouseup", mouseUp)
-		.on("touchstart", mouseDown)
-		.on("touchmove", function(){
-			mouseMove(true);	
-		})
-		.on("touchend", mouseUp); 
+    d3.timer(function(elapsed) {
 
-	hammer.on('tap', function(e) {
+        if (manualRotationActivated || inZoom || zoomed) {
+            return;
+        }
 
-		if (e.pointerType == "touch") {
-			touch(e);
-		} else {
-			click(e);
-		}
+        currentRotation[0] += 0.15;
+        redrawPathsOnRotation(currentRotation);
 
-	});
+    });
 
-	setCursor("grab");
+    d3.select("body")
+        .on("mousedown", mouseDown)
+        .on("mousemove", mouseMove)
+        .on("mouseup", mouseUp)
+        .on("touchstart", mouseDown)
+        .on("touchmove", function() {
+            mouseMove(true);
+        })
+        .on("touchend", mouseUp);
 
-	</script>
-<body>
+    hammer.on('tap', function(e) {
+
+        if (e.srcEvent.srcElement == $("#rightarrow")[0] || e.srcEvent.srcElement == $("#leftarrow")[0]) {
+            return;
+        }
+
+        if (e.pointerType == "touch") {
+            touch(e);
+        } else {
+            click(e);
+        }
+
+    });
+
+    setCursor("grab");
+    </script>
+    <div id="rightarrow" class="arrow right"></div>
+    <div id="leftarrow" class="arrow left"></div>
+    <script>
+    var cycleStories = [{
+        story: "Sparking Change",
+        country: "Kenya"
+    }, {
+        story: "Safe World For Girls",
+        country: "India"
+    }, {
+        story: "Reinventing Equality",
+        country: "Georgia"
+    }, {
+        story: "Fully Charged FLOW",
+        country: "Vietnam"
+    }, {
+        story: "Wired to Defend",
+        country: "Ecuador"
+    }, {
+        story: "Electrifying Action",
+        country: "Jordan"
+    }, {
+        story: "Shutting Down Trafficking",
+        country: "Nepal"
+    }];
+
+    var getSelectedStoryIndex = function() {
+
+        var index;
+
+        _.each(cycleStories, function(val, i) {
+            if (val.story == selectedStory.story.name) {
+                index = i;
+            }
+        });
+
+        return index;
+    };
+
+    var getSelectionObjectWithCycleStory = function(nextStory){
+
+        var fullStory = storyData[nextStory.story];
+
+        return {
+            center: fullStory.objects[nextStory.country].center,
+            story: fullStory
+        };
+
+    };
+
+    /*
+    	Pass in an object with the name of the story and country you want to select (ie a member of cyclestories above).
+    */
+
+    var selectNextStory = function(nextStory) {
+
+        currentSelection = getSelectionObjectWithCycleStory(nextStory);
+        selectedStory = currentSelection;
+        
+        projection.startingRotation = currentRotation;
+        currentRotation = [-selectedStory.center[0], -selectedStory.center[1], 0];
+        projection.rotate(currentRotation);
+
+        canvas.transition().ease("quad-in-out").duration(600).call(zoom.projection(projection).event);
+
+    };
+
+    $("#rightarrow").on("click", function(e) {
+        if (zoomed) {
+            var nextCycleStory = cycleStories[(getSelectedStoryIndex() + 1) % cycleStories.length];
+            selectNextStory(nextCycleStory);
+        }else{
+            currentSelection = getSelectionObjectWithCycleStory(cycleStories[0]);
+            click(); 
+        }
+    });
+
+
+     $("#leftarrow").on("click", function(e) {
+        if (zoomed) {
+            var nextCycleStory = cycleStories[(getSelectedStoryIndex() - 1) == -1 ? cycleStories.length-1 : (getSelectedStoryIndex() - 1)];
+            selectNextStory(nextCycleStory);
+        }
+    });
+
+    </script>
+
+    <body>
